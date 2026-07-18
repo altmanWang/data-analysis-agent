@@ -7,8 +7,11 @@ from dotenv import load_dotenv
 # 加载 .env 文件
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
+# 项目根目录
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+
 # 工作空间根目录
-WORKTREE_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sandboxes")
+WORKTREE_ROOT = os.path.join(PROJECT_ROOT, "sandboxes")
 
 # MySQL 配置
 DB_CONFIG = {

@@ -5,7 +5,7 @@ import time
 import os
 from agent_engine import build_agent, build_data_analyst_subagent
 from tools import load_csv, load_excel, execute_python, generate_report, generate_chart
-from config import WORKTREE_ROOT
+from config import PROJECT_ROOT
 
 
 class AgentPool:
@@ -21,7 +21,7 @@ class AgentPool:
             self._agents[session_id] = (agent, time.time())
             return agent
 
-        worktree = os.path.join(WORKTREE_ROOT, session_id)
+        worktree = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
         tools = [load_csv, load_excel, execute_python, generate_report, generate_chart]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])
