@@ -4,7 +4,7 @@
 import os
 import shutil
 import logging
-from .config import WORKTREE_ROOT
+from config import WORKTREE_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class WorktreeManager:
         logger.info(f"[OBS打桩] 模拟上传: sessions/{session_id}/worktree.zip")
 
         # 记录 OBS key
-        from .session_manager import session_manager as sm
+        from session_manager import session_manager as sm
         sm.update_obs_key(session_id, f"sessions/{session_id}/worktree.zip")
 
         # 清理本地
@@ -122,7 +122,7 @@ class WorktreeManager:
 
     def restore_session(self, session_id: str) -> str:
         """从 OBS 恢复 worktree（当前打桩：检查本地 zip 或抛异常）"""
-        from .session_manager import session_manager as sm
+        from session_manager import session_manager as sm
         meta = sm.get(session_id)
         if not meta or not meta.get("obs_archive_key"):
             raise RuntimeError(f"会话 {session_id} 无归档记录")

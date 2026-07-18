@@ -4,9 +4,9 @@
 import json
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from .agent_pool import agent_pool
-from .session_manager import session_manager
-from .worktree_manager import worktree_manager
+from agent_pool import agent_pool
+from session_manager import session_manager
+from worktree_manager import worktree_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

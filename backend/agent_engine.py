@@ -5,9 +5,9 @@ import os
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
-from .config import MODEL_CONFIG, SKILLS_DIR, WORKTREE_ROOT
-from .mysql_saver import MySQLSaver
-from .db import get_connection
+from config import MODEL_CONFIG, SKILLS_DIR, WORKTREE_ROOT
+from mysql_saver import MySQLSaver
+from db import get_connection
 
 
 # System Prompt
@@ -92,7 +92,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
 
 def build_data_analyst_subagent(worktree_root: str) -> dict:
     """构建 data-analyst 子代理配置"""
-    from .tools import load_csv, load_excel, execute_python, generate_chart
+    from tools import load_csv, load_excel, execute_python, generate_chart
 
     return {
         "name": "data-analyst",

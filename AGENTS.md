@@ -33,7 +33,7 @@ MYSQL_DATABASE=data_analysis_agent
 ```bash
 conda activate py311
 pip install -r requirements.txt
-uvicorn backend.main:app --reload --port 8000
+cd backend && uvicorn main:app --reload --port 8000
 ```
 
 ### 前端

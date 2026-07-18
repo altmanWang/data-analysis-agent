@@ -3,8 +3,8 @@
 
 from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
-from ..session_manager import session_manager
-from ..worktree_manager import worktree_manager
+from session_manager import session_manager
+from worktree_manager import worktree_manager
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 

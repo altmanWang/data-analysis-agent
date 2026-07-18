@@ -2,7 +2,7 @@
 """MySQL 数据库连接管理"""
 
 import pymysql
-from .config import DB_CONFIG
+from config import DB_CONFIG
 
 DB_NAME = DB_CONFIG["database"]
 
@@ -59,7 +59,7 @@ def init_db():
         conn.commit()
 
         # 创建 checkpointer 表
-        from .mysql_saver import MySQLSaver
+        from mysql_saver import MySQLSaver
         MySQLSaver(conn).setup()
     finally:
         conn.close()

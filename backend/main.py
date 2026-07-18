@@ -4,10 +4,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import init_db
-from .api.sessions import router as sessions_router
-from .api.files import router as files_router
-from .ws_handler import router as ws_router
+from db import init_db
+from api.sessions import router as sessions_router
+from api.files import router as files_router
+from ws_handler import router as ws_router
 
 
 @asynccontextmanager

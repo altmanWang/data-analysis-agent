@@ -2,7 +2,7 @@
 """会话元数据管理（MySQL CRUD）"""
 
 import uuid
-from .db import get_connection
+from db import get_connection
 
 
 class SessionManager:
