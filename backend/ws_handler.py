@@ -96,5 +96,6 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
     except WebSocketDisconnect:
         logger.info(f"WebSocket 断开: {session_id}")
     except Exception as e:
-        logger.error(f"WebSocket 错误: {e}")
+        import traceback
+        logger.error(f"WebSocket 错误: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         await ws.send_json({"type": "error", "payload": {"message": str(e)}})
