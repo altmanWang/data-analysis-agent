@@ -35,7 +35,16 @@ export default {
       this.$router.push(`/session/${s.session_id}`)
     },
     async onDelete(id) {
+      const wasCurrent = this.sessionStore.currentId === id
       await this.sessionStore.deleteSession(id)
+      // 如果删除的是当前会话，自动跳转到剩余会话或首页
+      if (wasCurrent) {
+        if (this.sessionStore.sessions.length > 0) {
+          this.$router.push(`/session/${this.sessionStore.sessions[0].session_id}`)
+        } else {
+          this.$router.push('/')
+        }
+      }
     },
     fmt(t) {
       if (!t) return ''

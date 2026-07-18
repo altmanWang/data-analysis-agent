@@ -5,6 +5,7 @@ export const useSessionStore = defineStore('session', {
     sessions: [],
     currentId: null,
     currentMeta: null,
+    pendingInput: null, // { text, mentions } — 新会话创建后自动发送
   }),
   actions: {
     async fetchSessions(userId = '') {

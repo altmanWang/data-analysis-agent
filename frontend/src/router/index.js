@@ -1,7 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-  { path: '/', redirect: '/session/new' },
+  {
+    path: '/',
+    component: () => import('../components/ChatPanel.vue'),
+  },
   {
     path: '/session/:id',
     component: () => import('../components/ChatPanel.vue'),

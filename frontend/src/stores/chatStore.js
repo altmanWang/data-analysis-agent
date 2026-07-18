@@ -9,6 +9,12 @@ export const useChatStore = defineStore('chat', {
     wsStatus: 'connecting', // 'connecting' | 'connected' | 'reconnecting' | 'error'
   }),
   actions: {
+    reset() {
+      this.messages = []
+      this.todos = []
+      this.isStreaming = false
+      this.wsStatus = 'connecting'
+    },
     addMessage(msg) {
       this.messages.push({ ...msg, timestamp: Date.now() })
     },

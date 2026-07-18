@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <SessionSidebar />
-    <router-view />
+    <router-view :key="$route.params.id" />
     <WorktreePanel />
   </div>
 </template>

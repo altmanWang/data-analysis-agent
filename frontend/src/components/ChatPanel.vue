@@ -1,6 +1,6 @@
 <template>
-  <div class="chat-panel">
-    <div class="chat-header">{{ sessionTitle }}</div>
+  <div class="chat-panel" :class="{ 'has-messages': messages.length > 0 || chatStore.todos.length > 0 }">
+    <div v-if="sessionTitle" class="chat-header">{{ sessionTitle }}</div>
     <div v-if="chatStore.todos.length" class="todo-panel">
       <div class="todo-title">分析计划</div>
       <div v-for="t in chatStore.todos" :key="t.content" class="todo-item" :class="t.status">
@@ -9,6 +9,16 @@
       </div>
     </div>
     <div class="chat-messages" ref="msgContainer">
+      <!-- 无会话时的欢迎提示 -->
+      <div v-if="isNewSession && messages.length === 0" class="welcome-hint">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="welcome-icon">
+          <path d="M21 21H3v-4a2 2 0 012-2h14a2 2 0 012 2v4z"/>
+          <path d="M7 15V9a5 5 0 0110 0v6"/>
+          <circle cx="12" cy="6" r="2"/>
+        </svg>
+        <h2>数据分析 Agent</h2>
+        <p>上传 CSV / Excel 文件，用自然语言进行数据分析</p>
+      </div>
       <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
         <div v-if="msg.role !== 'user'" class="msg-avatar">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
@@ -32,8 +42,8 @@
         </label>
         <textarea ref="input" v-model="text" @keydown.enter.exact.prevent="send"
           @keydown.escape="text=''" @input="onInput"
-          :disabled="sessionStatus !== 'active'" placeholder="输入分析需求，@ 引用文件..." rows="1" />
-        <button @click="send" :disabled="!text.trim() || sessionStatus !== 'active'" class="send-btn">
+          :disabled="sessionStatus === 'archived'" placeholder="输入分析需求，@ 引用文件..." rows="1" />
+        <button @click="send" :disabled="!text.trim()" class="send-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
@@ -59,20 +69,39 @@ export default {
     const sessionStore = useSessionStore()
     const chatStore = useChatStore()
     const fileStore = useFileStore()
-    this.sessionId = this.id
-    sessionStore.currentId = this.id
 
-    sessionStore.fetchSession(this.id).then(m => {
-      this.sessionTitle = m.title
-      this.sessionStatus = m.status
-      fileStore.fetchTree(this.id)
-    }).catch(() => this.$router.push('/'))
+    // 切换会话时清空旧数据
+    chatStore.reset()
 
-    chatStore.ws = createWS(this.id, chatStore, fileStore)
+    // 有效的会话 ID：加载数据并建立连接
+    if (this.id && this.id !== 'new') {
+      this.sessionId = this.id
+      sessionStore.currentId = this.id
+
+      sessionStore.fetchSession(this.id).then(m => {
+        this.sessionTitle = m.title
+        this.sessionStatus = m.status
+        fileStore.fetchTree(this.id)
+      }).catch(() => this.$router.push('/'))
+
+      chatStore.ws = createWS(this.id, chatStore, fileStore)
+
+      // 有待发送的输入（从上一个无效会话迁移过来）
+      if (sessionStore.pendingInput) {
+        const pending = sessionStore.pendingInput
+        sessionStore.pendingInput = null
+        this.$nextTick(() => {
+          this.text = pending.text
+          this.selectedMentions = pending.mentions
+          this.send()
+        })
+      }
+    }
   },
   computed: {
     chatStore() { return useChatStore() },
     messages() { return this.chatStore.messages },
+    isNewSession() { return !this.sessionId },
     mentionFiles() {
       const tree = useFileStore().tree
       const files = []
@@ -105,6 +134,17 @@ export default {
     send() {
       if (!this.text.trim()) return
       const chatStore = useChatStore()
+      const sessionStore = useSessionStore()
+
+      // 无会话或有无效会话时：自动创建新会话
+      if (!this.sessionId || this.sessionStatus !== 'active') {
+        sessionStore.pendingInput = { text: this.text, mentions: this.selectedMentions }
+        sessionStore.createSession().then(s => {
+          this.$router.push(`/session/${s.session_id}`)
+        })
+        return
+      }
+
       chatStore.addMessage({ role: 'user', content: this.text })
       chatStore.isStreaming = true
       chatStore.ws.send(JSON.stringify({
@@ -116,7 +156,17 @@ export default {
     },
     async onUpload(e) {
       const file = e.target.files[0]
-      if (file) await useFileStore().upload(this.sessionId, file)
+      if (!file) return
+      const sessionStore = useSessionStore()
+      // 无会话时自动创建
+      if (!this.sessionId) {
+        const s = await sessionStore.createSession()
+        const fileStore = useFileStore()
+        await fileStore.upload(s.session_id, file)
+        this.$router.push(`/session/${s.session_id}`)
+        return
+      }
+      await useFileStore().upload(this.sessionId, file)
     },
   },
   beforeUnmount() {
@@ -132,25 +182,60 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-bg-card);
+  background: var(--color-bg);
+  justify-content: center;
+}
+
+.chat-panel.has-messages {
+  justify-content: flex-start;
 }
 
 /* ---- header ---- */
 .chat-header {
   padding: var(--spacing-md) var(--spacing-2xl);
-  border-bottom: 1px solid var(--color-border-light);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   font-size: var(--font-size-md);
   flex-shrink: 0;
 }
 
+.has-messages .chat-header {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
 /* ---- messages area ---- */
 .chat-messages {
-  flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-2xl) 0;
-  background: var(--color-bg);
+  padding: 0;
+}
+
+.has-messages .chat-messages {
+  flex: 1;
+}
+
+/* 无会话时的欢迎提示 */
+.welcome-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 var(--spacing-lg) var(--spacing-xl);
+}
+.welcome-icon {
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-lg);
+}
+.welcome-hint h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xs);
+}
+.welcome-hint p {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  max-width: 360px;
+  line-height: 1.6;
 }
 
 .message-row {
@@ -322,11 +407,14 @@ export default {
 
 /* ---- input area ---- */
 .chat-input {
+  padding: 0 var(--spacing-2xl) var(--spacing-2xl);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.has-messages .chat-input {
   padding: var(--spacing-md) var(--spacing-2xl) var(--spacing-lg);
   border-top: 1px solid var(--color-border-light);
-  position: relative;
-  background: var(--color-bg-card);
-  flex-shrink: 0;
 }
 
 .input-row {
@@ -335,6 +423,25 @@ export default {
   gap: var(--spacing-sm);
   max-width: 800px;
   margin: 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-row:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.has-messages .input-row {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 textarea {
@@ -374,6 +481,7 @@ textarea:disabled {
   align-items: center;
   justify-content: center;
   transition: background var(--transition-fast), transform var(--transition-fast);
+  margin-bottom: 2px;
 }
 
 .send-btn:hover:not(:disabled) {

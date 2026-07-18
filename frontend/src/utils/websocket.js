@@ -2,18 +2,20 @@ export function createWS(sessionId, chatStore, fileStore) {
   let ws = null
   let reconnectTimer = null
   let reconnectDelay = 1000
+  let intentionalClose = false // 主动关闭时不重连
   const MAX_DELAY = 30000
 
   function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      return // 已连接或正在连接，不重复创建
+      return
     }
 
     ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`)
 
     ws.onopen = () => {
       console.log('WS connected:', sessionId)
-      reconnectDelay = 1000 // 重置延迟
+      reconnectDelay = 1000
+      intentionalClose = false
       chatStore.setWsStatus('connected')
     }
 
@@ -65,6 +67,10 @@ export function createWS(sessionId, chatStore, fileStore) {
           console.log('Session status:', payload.status)
           break
         case 'error':
+          // 致命错误（会话不存在）不重连
+          if (payload.message && payload.message.includes('会话不存在')) {
+            intentionalClose = true
+          }
           chatStore.addMessage({ role: 'system', content: `错误: ${payload.message}` })
           break
       }
@@ -75,6 +81,11 @@ export function createWS(sessionId, chatStore, fileStore) {
     }
 
     ws.onclose = () => {
+      if (intentionalClose) {
+        console.log('WS closed (intentional), not reconnecting')
+        chatStore.setWsStatus('error')
+        return
+      }
       console.log('WS disconnected, reconnecting in', reconnectDelay, 'ms')
       chatStore.setWsStatus('reconnecting')
       reconnectTimer = setTimeout(() => {
@@ -89,12 +100,10 @@ export function createWS(sessionId, chatStore, fileStore) {
       ws.send(data)
       return true
     }
-    // 未连接时触发重连，并提示用户
     if (!ws || ws.readyState === WebSocket.CLOSED) {
       chatStore.setWsStatus('reconnecting')
-      reconnectDelay = 500 // 用户主动操作时快速重连
+      reconnectDelay = 500
       connect()
-      // 延迟发送：等待连接建立
       setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(data)
@@ -109,6 +118,7 @@ export function createWS(sessionId, chatStore, fileStore) {
   }
 
   function close() {
+    intentionalClose = true
     if (reconnectTimer) clearTimeout(reconnectTimer)
     if (ws) ws.close()
   }
