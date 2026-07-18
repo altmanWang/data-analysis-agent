@@ -65,7 +65,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=worktree, virtual_mode=True),
         routes={
-            "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=True),
+            "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=False),
         },
     )
 
