@@ -1,0 +1,11 @@
+fastapi==0.115.12
+langgraph>=1.0.5
+langchain>=1.2.0
+deepagents>=0.6.0
+pymysql==1.1.1
+pandas
+openpyxl
+matplotlib
+uvicorn[standard]
+python-multipart
+aiofiles
