@@ -68,29 +68,43 @@ class MySQLSaver(BaseCheckpointSaver):
 
     serde = JsonPlusSerializer()
 
-    def __init__(self, conn: pymysql.connections.Connection):
+    def __init__(self):
         super().__init__()
-        self.conn = conn
+        # 不复用连接（pymysql 非线程安全），每次操作创建新连接
 
     @classmethod
     def from_conn_string(cls, conn: pymysql.connections.Connection) -> "MySQLSaver":
-        """从已有连接创建并自动建表"""
-        saver = cls(conn)
-        saver.setup()
+        """从已有连接创建并自动建表（建表后丢弃连接）"""
+        saver = cls()
+        saver._setup_with_conn(conn)
         return saver
 
-    def setup(self) -> None:
-        """创建 checkpointer 所需的三张表"""
-        with self.conn.cursor() as cur:
+    def _get_conn(self) -> pymysql.connections.Connection:
+        """每次操作获取独立连接（线程安全）"""
+        from db import get_connection
+        return get_connection()
+
+    def _setup_with_conn(self, conn):
+        """用指定连接建表"""
+        with conn.cursor() as cur:
             for statement in _DEFAULT_TABLE_SQL.split(";"):
                 stmt = statement.strip()
                 if stmt:
                     cur.execute(stmt)
-            self.conn.commit()
+            conn.commit()
+
+    def setup(self) -> None:
+        """创建 checkpointer 所需的三张表"""
+        conn = self._get_conn()
+        try:
+            self._setup_with_conn(conn)
+        finally:
+            conn.close()
 
     def _cursor(self):
-        """获取游标"""
-        return self.conn.cursor()
+        """获取游标（每次新建连接以确保线程安全）"""
+        conn = self._get_conn()
+        return conn, conn.cursor()
 
     # ─── get_tuple ──────────────────────────────────
 
@@ -100,7 +114,7 @@ class MySQLSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
         checkpoint_id = config["configurable"].get("checkpoint_id")
 
-        cur = self._cursor()
+        conn, cur = self._cursor()
         try:
             if checkpoint_id:
                 cur.execute(
@@ -161,6 +175,7 @@ class MySQLSaver(BaseCheckpointSaver):
             )
         finally:
             cur.close()
+            conn.close()
 
     # ─── put ────────────────────────────────────────
 
@@ -179,7 +194,7 @@ class MySQLSaver(BaseCheckpointSaver):
         ckpt_type, ckpt_bytes = self.serde.dumps_typed(checkpoint)
         meta_type, meta_bytes = self.serde.dumps_typed(metadata)
 
-        cur = self._cursor()
+        conn, cur = self._cursor()
         try:
             cur.execute(
                 "INSERT INTO checkpoints "
@@ -195,9 +210,10 @@ class MySQLSaver(BaseCheckpointSaver):
                     parent_checkpoint_id, ckpt_type, ckpt_bytes, meta_bytes,
                 ),
             )
-            self.conn.commit()
+            conn.commit()
         finally:
             cur.close()
+            conn.close()
 
         return {
             "configurable": {
@@ -220,7 +236,7 @@ class MySQLSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
         checkpoint_id = config["configurable"]["checkpoint_id"]
 
-        cur = self._cursor()
+        conn, cur = self._cursor()
         try:
             for idx, (channel, value) in enumerate(writes):
                 w_type, w_bytes = self.serde.dumps_typed(value)
@@ -235,9 +251,10 @@ class MySQLSaver(BaseCheckpointSaver):
                         task_id, idx, channel, w_type, w_bytes,
                     ),
                 )
-            self.conn.commit()
+            conn.commit()
         finally:
             cur.close()
+            conn.close()
 
     # ─── put_blobs ─────────────────────────────────
 
@@ -249,7 +266,7 @@ class MySQLSaver(BaseCheckpointSaver):
         values: Sequence[Tuple[str, str, Any]],
     ) -> None:
         """写入 checkpoint blobs"""
-        cur = self._cursor()
+        conn, cur = self._cursor()
         try:
             for channel, version, value in values:
                 blob_type, blob_bytes = self.serde.dumps_typed(value)
@@ -261,9 +278,10 @@ class MySQLSaver(BaseCheckpointSaver):
                     "type=VALUES(type), `blob`=VALUES(`blob`)",
                     (thread_id, checkpoint_ns, channel, version, blob_type, blob_bytes),
                 )
-            self.conn.commit()
+            conn.commit()
         finally:
             cur.close()
+            conn.close()
 
     # ─── list ───────────────────────────────────────
 
@@ -279,7 +297,7 @@ class MySQLSaver(BaseCheckpointSaver):
         thread_id = config["configurable"]["thread_id"] if config else None
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "") if config else ""
 
-        cur = self._cursor()
+        conn, cur = self._cursor()
         try:
             sql = (
                 "SELECT thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id, "
@@ -325,6 +343,7 @@ class MySQLSaver(BaseCheckpointSaver):
                 )
         finally:
             cur.close()
+            conn.close()
 
     # ─── Async wrappers (LangGraph astream 需要) ───
 

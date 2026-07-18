@@ -55,6 +55,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
 
     conn = get_connection()
     checkpointer = MySQLSaver.from_conn_string(conn)
+    conn.close()
 
     if not os.path.exists(skills_dir):
         os.makedirs(skills_dir, exist_ok=True)

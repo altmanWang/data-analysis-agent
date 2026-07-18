@@ -60,6 +60,6 @@ def init_db():
 
         # 创建 checkpointer 表
         from mysql_saver import MySQLSaver
-        MySQLSaver(conn).setup()
+        MySQLSaver.from_conn_string(conn)
     finally:
         conn.close()
