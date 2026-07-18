@@ -20,6 +20,12 @@
         <p>上传 CSV / Excel 文件，用自然语言进行数据分析</p>
       </div>
       <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
+        <!-- 工具状态消息：简洁进度指示 -->
+        <div v-if="msg.role === 'tool'" class="tool-status-row">
+          <span class="tool-dot">{{ msg.content.startsWith('🔧') ? '⏳' : '✅' }}</span>
+          <span class="tool-text">{{ msg.content }}</span>
+        </div>
+        <template v-else>
         <div v-if="msg.role !== 'user'" class="msg-avatar">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
         </div>
@@ -27,6 +33,7 @@
           <div class="text-content" v-html="renderMd(msg.content)"></div>
           <div v-if="msg.source === 'subagent'" class="sub-tag">子代理</div>
         </div>
+        </template>
       </div>
       <div ref="bottom" />
     </div>
@@ -244,6 +251,26 @@ export default {
   padding: var(--spacing-md) var(--spacing-2xl);
   max-width: 800px;
   margin: 0 auto;
+}
+
+/* tool status row — thinking 过程指示 */
+.tool-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.tool-dot {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.tool-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message-row.user {

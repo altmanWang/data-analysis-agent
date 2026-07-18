@@ -99,6 +99,9 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                             "type": "chat.tool_result",
                             "payload": {"tool": name, "output": str(data.get("output", ""))[:500]},
                         })
+                        # 工具完成后推送文件树（图表/报告可能已生成）
+                        tree = worktree_manager.get_file_tree(session_id)
+                        await ws.send_json({"type": "file.tree", "payload": {"tree": tree}})
 
                 # 对话完成，推送更新后的文件树
                 tree = worktree_manager.get_file_tree(session_id)

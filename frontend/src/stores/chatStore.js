@@ -32,5 +32,23 @@ export const useChatStore = defineStore('chat', {
     },
     updateTodos(todos) { this.todos = todos },
     setWsStatus(status) { this.wsStatus = status },
+    addToolStatus(info) {
+      // 追加到消息流中作为系统消息，同时去重
+      const key = `${info.tool}:${info.status}`
+      const lastMsg = this.messages[this.messages.length - 1]
+      if (lastMsg && lastMsg.role === 'tool' && lastMsg.toolKey === key) {
+        // 同一工具同一状态不重复
+        return
+      }
+      this.messages.push({
+        role: 'tool',
+        toolKey: key,
+        content: info.status === 'running'
+          ? `🔧 ${info.tool}...`
+          : `✅ ${info.tool} 完成`,
+        detail: info.detail,
+        timestamp: Date.now(),
+      })
+    },
   },
 })

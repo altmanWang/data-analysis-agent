@@ -37,6 +37,12 @@ export default {
   props: { item: Object, depth: Number, sessionId: String, parentPath: { type: String, default: '' } },
   emits: ['preview', 'delete'],
   data: () => ({ expanded: false, showMenu: false }),
+  mounted() {
+    // depth <= 1 的目录自动展开（根目录 + 第一层如 reports/）
+    if (this.item.type === 'dir' && this.item.children && this.item.children.length > 0 && this.depth <= 1) {
+      this.expanded = true
+    }
+  },
   computed: {
     fileIconColor() {
       if (this.item.type === 'dir') return null

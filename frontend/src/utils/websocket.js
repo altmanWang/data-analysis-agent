@@ -60,6 +60,17 @@ export function createWS(sessionId, chatStore, fileStore) {
             } catch {}
           }
           break
+        case 'chat.tool_call':
+          // 从 tool 输入中提取 todos
+          try {
+            const input = typeof payload.input === 'string' ? JSON.parse(payload.input) : payload.input
+            if (input && input.todos) chatStore.updateTodos(input.todos)
+          } catch {}
+          chatStore.addToolStatus({ status: 'running', tool: payload.tool || '', detail: payload.input || '' })
+          break
+        case 'chat.tool_result':
+          chatStore.addToolStatus({ status: 'done', tool: payload.tool || '', detail: (payload.output || '').slice(0, 200) })
+          break
         case 'file.tree':
           if (payload.tree) fileStore.tree = payload.tree
           break

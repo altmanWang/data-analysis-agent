@@ -26,9 +26,10 @@ export const useFileStore = defineStore('file', {
       const mime = res.headers.get('content-type')
       this.previewMime = mime
 
-      // 图片用 Blob URL，文本直接用 text()
-      if (mime && mime.startsWith('image/')) {
+      // 图片和 HTML 用 Blob URL，文本用 text()
+      if (mime && (mime.startsWith('image/') || mime.startsWith('text/html'))) {
         const blob = await res.blob()
+        if (this.previewBlobUrl) URL.revokeObjectURL(this.previewBlobUrl)
         this.previewBlobUrl = URL.createObjectURL(blob)
         this.previewContent = null
       } else {

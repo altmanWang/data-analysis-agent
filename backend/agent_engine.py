@@ -112,7 +112,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
         backend=backend,
         tools=tools,
         subagents=subagents,
-        skills=[skills_dir] if os.path.exists(skills_dir) else [],
+        skills=["/skills"] if os.path.exists(skills_dir) else [],
         permissions=permissions,
         system_prompt=MAIN_SYSTEM_PROMPT,
         checkpointer=checkpointer,
