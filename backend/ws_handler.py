@@ -67,10 +67,10 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
             if msg.get("type") == "chat.send":
                 content = msg["payload"]["content"]
 
-                stream = agent.astream_events(
+                stream = await agent.astream_events(
                     {"messages": [{"role": "user", "content": content}]},
                     config={"configurable": {"thread_id": session_id}},
-                    version="v3",
+                    version="v2",
                 )
 
                 async for event in stream:
