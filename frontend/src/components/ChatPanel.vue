@@ -437,11 +437,10 @@ export default {
 }
 
 .has-messages .input-row {
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid #CBD5E1;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-bg-card);
 }
 
 textarea {
