@@ -8,7 +8,7 @@
       <div class="tree-header">工作空间</div>
       <div v-if="fileStore.tree.length === 0" class="tree-empty">上传文件开始分析</div>
       <TreeNode v-for="item in fileStore.tree" :key="item.name"
-        :item="item" :depth="0" :sessionId="sessionId"
+        :item="item" :depth="0" :sessionId="sessionId" parentPath=""
         @preview="onPreview" @delete="onDelete" />
     </div>
     <div v-else class="file-preview">
@@ -19,7 +19,7 @@
       <div class="preview-body">
         <iframe v-if="isHtml" :srcdoc="fileStore.previewContent" class="html-preview" sandbox="allow-scripts allow-same-origin" />
         <div v-else-if="isMarkdown" class="md-preview" v-html="renderMd(fileStore.previewContent)" />
-        <img v-else-if="isImage" :src="imgSrc" class="img-preview" />
+        <img v-else-if="isImage" :src="fileStore.previewBlobUrl" class="img-preview" />
         <div v-else class="unsupported">不支持预览此文件类型</div>
       </div>
     </div>
@@ -40,7 +40,6 @@ export default {
     isHtml() { return this.fileStore.previewMime === 'text/html' },
     isMarkdown() { return this.fileStore.previewMime === 'text/markdown' || (this.fileStore.previewPath || '').endsWith('.md') },
     isImage() { return (this.fileStore.previewMime || '').startsWith('image/') },
-    imgSrc() { return `data:${this.fileStore.previewMime};base64,${btoa(this.fileStore.previewContent)}` },
   },
   watch: {
     'fileStore.previewPath'(val) { if (val) this.activeTab = 'preview' },
@@ -51,7 +50,8 @@ export default {
     async onDelete(path) { await useFileStore().deleteFile(this.sessionId, path) },
     closePreview() {
       const s = useFileStore()
-      s.previewPath = null; s.previewContent = null; s.previewMime = null
+      if (s.previewBlobUrl) URL.revokeObjectURL(s.previewBlobUrl)
+      s.previewPath = null; s.previewContent = null; s.previewMime = null; s.previewBlobUrl = null
       this.activeTab = 'tree'
     },
   },

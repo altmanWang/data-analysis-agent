@@ -11,7 +11,7 @@
     </div>
     <template v-if="expanded && item.children">
       <TreeNode v-for="child in item.children" :key="child.name"
-        :item="child" :depth="depth + 1" :sessionId="sessionId"
+        :item="child" :depth="depth + 1" :sessionId="sessionId" :parentPath="getFullPath()"
         @preview="p => $emit('preview', p)" @delete="d => $emit('delete', d)" />
     </template>
   </div>
@@ -20,12 +20,12 @@
 <script>
 export default {
   name: 'TreeNode',
-  props: { item: Object, depth: Number, sessionId: String },
+  props: { item: Object, depth: Number, sessionId: String, parentPath: { type: String, default: '' } },
   emits: ['preview', 'delete'],
   data: () => ({ expanded: false, showMenu: false }),
   methods: {
     toggle() { if (this.item.type === 'dir') this.expanded = !this.expanded },
-    getFullPath() { return '/' + this.item.name },
+    getFullPath() { return this.parentPath + '/' + this.item.name },
     fmtSize(b) {
       if (!b) return ''
       if (b < 1024) return b + 'B'

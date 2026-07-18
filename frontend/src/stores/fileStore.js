@@ -6,6 +6,7 @@ export const useFileStore = defineStore('file', {
     previewPath: null,
     previewContent: null,
     previewMime: null,
+    previewBlobUrl: null,
   }),
   actions: {
     async fetchTree(sessionId) {
@@ -22,8 +23,18 @@ export const useFileStore = defineStore('file', {
     async preview(sessionId, path) {
       this.previewPath = path
       const res = await fetch(`/api/sessions/${sessionId}/files/${encodeURIComponent(path)}`)
-      this.previewMime = res.headers.get('content-type')
-      this.previewContent = await res.text()
+      const mime = res.headers.get('content-type')
+      this.previewMime = mime
+
+      // 图片用 Blob URL，文本直接用 text()
+      if (mime && mime.startsWith('image/')) {
+        const blob = await res.blob()
+        this.previewBlobUrl = URL.createObjectURL(blob)
+        this.previewContent = null
+      } else {
+        this.previewContent = await res.text()
+        this.previewBlobUrl = null
+      }
     },
     async deleteFile(sessionId, path) {
       await fetch(`/api/sessions/${sessionId}/files/${encodeURIComponent(path)}`, { method: 'DELETE' })

@@ -33,7 +33,11 @@ async def upload_file(session_id: str, file: UploadFile = File(...)):
     upload_dir = os.path.join(WORKTREE_ROOT, session_id, "uploads")
     os.makedirs(upload_dir, exist_ok=True)
 
-    file_path = os.path.join(upload_dir, file.filename)
+    # 安全：仅取文件名，防止路径穿越（如 ../../etc/passwd）
+    safe_name = os.path.basename(file.filename)
+    if not safe_name:
+        raise HTTPException(status_code=400, detail="无效的文件名")
+    file_path = os.path.join(upload_dir, safe_name)
     async with aiofiles.open(file_path, "wb") as f:
         content = await file.read()
         await f.write(content)

@@ -5,7 +5,6 @@
 """
 
 from typing import Any, Iterator, Optional, Sequence, Tuple
-from contextlib import contextmanager
 
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
@@ -234,6 +233,32 @@ class MySQLSaver(BaseCheckpointSaver):
                         thread_id, checkpoint_ns, checkpoint_id,
                         task_id, idx, channel, w_type, w_bytes,
                     ),
+                )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    # ─── put_blobs ─────────────────────────────────
+
+    def put_blobs(
+        self,
+        config: dict,
+        thread_id: str,
+        checkpoint_ns: str,
+        values: Sequence[Tuple[str, str, Any]],
+    ) -> None:
+        """写入 checkpoint blobs"""
+        cur = self._cursor()
+        try:
+            for channel, version, value in values:
+                blob_type, blob_bytes = self.serde.dumps_typed(value)
+                cur.execute(
+                    "INSERT INTO checkpoint_blobs "
+                    "(thread_id, checkpoint_ns, channel, version, type, `blob`) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE "
+                    "type=VALUES(type), `blob`=VALUES(`blob`)",
+                    (thread_id, checkpoint_ns, channel, version, blob_type, blob_bytes),
                 )
             self.conn.commit()
         finally:
