@@ -8,7 +8,7 @@ agents框架使用
 langgraph>=1.0.5
 langchain>=1.2.0
 deepagents>=0.6.0
-python使用python 3.10
+python使用python 3.11
 
 ### 前端
 前端使用JS+VUE3
@@ -31,7 +31,7 @@ MYSQL_DATABASE=data_analysis_agent
 ## 启动命令
 ### 后端
 ```bash
-conda activate py310
+conda activate py311
 pip install -r requirements.txt
 cd backend && uvicorn main:app --reload --port 8000
 ```
