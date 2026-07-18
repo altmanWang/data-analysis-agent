@@ -67,7 +67,10 @@ def create_data_tools(worktree_root: str):
     def execute_python(code: str) -> str:
         """执行 Python 数据分析代码并返回输出。
 
-        可用库: pandas (pd), numpy (np), matplotlib (plt), json
+        可用库: pandas (pd), numpy (np), matplotlib (plt), json, os, io, base64
+        读取文件请用 read_csv() / read_excel()（自动拼接路径），不要直接用 pd.read_csv()
+        保存图表到 worktree_root 下: plt.savefig(os.path.join(worktree_root, 'reports', 'xxx.png'))
+        HTML 报告中的图表用 base64 内嵌: io.BytesIO() + base64.b64encode() + <img src="data:image/png;base64,...">
 
         Args:
             code: Python 代码字符串，print() 输出会被捕获返回
@@ -77,12 +80,22 @@ def create_data_tools(worktree_root: str):
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
+        def _read_csv(filepath, **kwargs):
+            return pd.read_csv(os.path.join(worktree_root, filepath.lstrip("/")), **kwargs)
+        def _read_excel(filepath, **kwargs):
+            return pd.read_excel(os.path.join(worktree_root, filepath.lstrip("/")), **kwargs)
+
         namespace = {
             "pd": pd,
             "np": np,
             "plt": plt,
             "json": json,
+            "os": os,
+            "io": __import__("io"),
+            "base64": __import__("base64"),
             "worktree_root": worktree_root,
+            "read_csv": _read_csv,
+            "read_excel": _read_excel,
         }
 
         stdout_capture = io.StringIO()

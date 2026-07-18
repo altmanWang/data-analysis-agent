@@ -61,15 +61,14 @@ export function createWS(sessionId, chatStore, fileStore) {
           }
           break
         case 'chat.tool_call':
-          // 从 tool 输入中提取 todos
           try {
             const input = typeof payload.input === 'string' ? JSON.parse(payload.input) : payload.input
             if (input && input.todos) chatStore.updateTodos(input.todos)
           } catch {}
-          chatStore.addToolStatus({ status: 'running', tool: payload.tool || '', detail: payload.input || '' })
+          chatStore.addToolCall(payload.tool || '', payload.input || '')
           break
         case 'chat.tool_result':
-          chatStore.addToolStatus({ status: 'done', tool: payload.tool || '', detail: (payload.output || '').slice(0, 200) })
+          chatStore.updateToolResult(payload.tool || '', payload.output || '')
           break
         case 'file.tree':
           if (payload.tree) fileStore.tree = payload.tree
@@ -140,7 +139,13 @@ export function createWS(sessionId, chatStore, fileStore) {
   function close() {
     intentionalClose = true
     if (reconnectTimer) clearTimeout(reconnectTimer)
-    if (ws) ws.close()
+    if (ws) {
+      // 移除事件处理，防止缓冲事件在 close 后继续触发
+      ws.onmessage = null
+      ws.onerror = null
+      ws.onclose = null
+      ws.close()
+    }
   }
 
   connect()

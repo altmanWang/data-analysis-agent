@@ -32,21 +32,37 @@ export const useChatStore = defineStore('chat', {
     },
     updateTodos(todos) { this.todos = todos },
     setWsStatus(status) { this.wsStatus = status },
-    addToolStatus(info) {
-      // 追加到消息流中作为系统消息，同时去重
-      const key = `${info.tool}:${info.status}`
-      const lastMsg = this.messages[this.messages.length - 1]
-      if (lastMsg && lastMsg.role === 'tool' && lastMsg.toolKey === key) {
-        // 同一工具同一状态不重复
-        return
-      }
+    addToolCall(tool, input) {
       this.messages.push({
         role: 'tool',
-        toolKey: key,
-        content: info.status === 'running'
-          ? `🔧 ${info.tool}...`
-          : `✅ ${info.tool} 完成`,
-        detail: info.detail,
+        type: 'tool-call',
+        tool,
+        status: 'running',
+        input,
+        output: null,
+        expanded: true,
+        timestamp: Date.now(),
+      })
+    },
+    updateToolResult(tool, output) {
+      for (let i = this.messages.length - 1; i >= 0; i--) {
+        const m = this.messages[i]
+        if (m.role === 'tool' && m.type === 'tool-call' && m.tool === tool && m.status === 'running') {
+          m.status = 'done'
+          m.output = output
+          m.expanded = false
+          return
+        }
+      }
+      // 找不到匹配的 running 卡片时，作为独立完成消息插入
+      this.messages.push({
+        role: 'tool',
+        type: 'tool-call',
+        tool,
+        status: 'done',
+        input: null,
+        output,
+        expanded: false,
         timestamp: Date.now(),
       })
     },

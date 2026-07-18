@@ -3,10 +3,12 @@
 
 import json
 import logging
+import os
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from agent_pool import agent_pool
 from session_manager import session_manager
 from worktree_manager import worktree_manager
+from config import WORKTREE_ROOT
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,18 +46,17 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         await ws.close()
         return
 
-    # 发送历史消息
+    # 发送历史消息（从 .history.json 或 LangGraph state 读取）
     try:
-        state = agent.get_state({"configurable": {"thread_id": session_id}})
-        if state and state.values and state.values.get("messages"):
-            for msg in state.values["messages"]:
-                role = getattr(msg, "type", "assistant")
-                content = getattr(msg, "content", "")
-                if content:
-                    await ws.send_json({
-                        "type": "chat.response",
-                        "payload": {"role": role, "content": content, "done": True},
-                    })
+        history_file = os.path.join(WORKTREE_ROOT, session_id, ".history.json")
+        if os.path.exists(history_file):
+            with open(history_file, "r", encoding="utf-8") as f:
+                history = json.load(f)
+            for msg in history:
+                await ws.send_json({
+                    "type": "chat.response",
+                    "payload": {"role": msg["role"], "content": msg["content"], "done": True},
+                })
     except Exception:
         pass  # 首次对话无历史
 
@@ -63,13 +64,19 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
         while True:
             raw = await ws.receive_text()
             msg = json.loads(raw)
+            assistant_full = ""
+            turn_history = []
 
             if msg.get("type") == "chat.send":
                 content = msg["payload"]["content"]
 
+                # 初始化本轮对话的历史记录
+                turn_history = [{"role": "user", "content": content}]
+                assistant_full = ""
+
                 async for event in agent.astream_events(
                     {"messages": [{"role": "user", "content": content}]},
-                    config={"configurable": {"thread_id": session_id}},
+                    config={"configurable": {"thread_id": session_id}, "recursion_limit": 50},
                     version="v2",
                 ):
                     evt = event.get("event", "")
@@ -85,6 +92,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                     if evt == "on_chat_model_stream" and data.get("chunk"):
                         chunk = data["chunk"]
                         if hasattr(chunk, "content") and chunk.content:
+                            assistant_full += chunk.content
                             await ws.send_json({
                                 "type": "chat.response",
                                 "payload": {"content": chunk.content, "done": False},
@@ -103,11 +111,35 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                         tree = worktree_manager.get_file_tree(session_id)
                         await ws.send_json({"type": "file.tree", "payload": {"tree": tree}})
 
+                # 保存本轮对话到历史文件
+                if assistant_full.strip():
+                    turn_history.append({"role": "assistant", "content": assistant_full})
+                    history_file = os.path.join(WORKTREE_ROOT, session_id, ".history.json")
+                    existing = []
+                    if os.path.exists(history_file):
+                        with open(history_file, "r", encoding="utf-8") as f:
+                            existing = json.load(f)
+                    existing.extend(turn_history)
+                    with open(history_file, "w", encoding="utf-8") as f:
+                        json.dump(existing, f, ensure_ascii=False)
+
                 # 对话完成，推送更新后的文件树
                 tree = worktree_manager.get_file_tree(session_id)
                 await ws.send_json({"type": "file.tree", "payload": {"tree": tree}})
 
             elif msg.get("type") == "chat.cancel":
+                if assistant_full.strip():
+                    turn_history.append({"role": "assistant", "content": assistant_full + "\n[执行已中断]"})
+                else:
+                    turn_history.append({"role": "assistant", "content": "[执行已中断]"})
+                history_file = os.path.join(WORKTREE_ROOT, session_id, ".history.json")
+                existing = []
+                if os.path.exists(history_file):
+                    with open(history_file, "r", encoding="utf-8") as f:
+                        existing = json.load(f)
+                existing.extend(turn_history)
+                with open(history_file, "w", encoding="utf-8") as f:
+                    json.dump(existing, f, ensure_ascii=False)
                 await ws.send_json({
                     "type": "chat.response",
                     "payload": {"content": "[执行已中断]", "done": True},

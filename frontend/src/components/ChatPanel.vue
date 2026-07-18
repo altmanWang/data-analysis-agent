@@ -20,10 +20,25 @@
         <p>上传 CSV / Excel 文件，用自然语言进行数据分析</p>
       </div>
       <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
-        <!-- 工具状态消息：简洁进度指示 -->
-        <div v-if="msg.role === 'tool'" class="tool-status-row">
-          <span class="tool-dot">{{ msg.content.startsWith('🔧') ? '⏳' : '✅' }}</span>
-          <span class="tool-text">{{ msg.content }}</span>
+        <!-- 工具调用：折叠卡片 -->
+        <div v-if="msg.role === 'tool'" class="tool-card" :class="msg.status" @click="msg.expanded = !msg.expanded">
+          <div class="tool-card-header">
+            <span class="tool-card-dot"></span>
+            <span class="tool-card-name">{{ msg.tool }}</span>
+            <span class="tool-card-status">{{ msg.status === 'running' ? '执行中...' : '完成' }}</span>
+            <svg class="tool-card-chevron" :class="{ expanded: msg.expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div v-if="msg.expanded" class="tool-card-body">
+            <div v-if="msg.input" class="card-section">
+              <div class="card-label">输入</div>
+              <pre class="card-pre">{{ msg.input }}</pre>
+            </div>
+            <div v-if="msg.output" class="card-section">
+              <div class="card-label">输出</div>
+              <pre class="card-pre">{{ msg.output }}</pre>
+            </div>
+            <div v-if="!msg.input && !msg.output" class="card-empty">等待结果...</div>
+          </div>
         </div>
         <template v-else>
         <div v-if="msg.role !== 'user'" class="msg-avatar">
@@ -79,6 +94,8 @@ export default {
 
     // 切换会话时清空旧数据
     chatStore.reset()
+    // 清理旧的流式滚动定时器
+    if (this._streamInterval) { clearInterval(this._streamInterval); this._streamInterval = null }
 
     // 有效的会话 ID：加载数据并建立连接
     if (this.id && this.id !== 'new') {
@@ -122,11 +139,40 @@ export default {
     },
   },
   watch: {
-    'chatStore.messages': { deep: true, handler() { this.$nextTick(() => this.scrollBottom()) } },
+    'chatStore.messages.length'() { this.$nextTick(() => this.autoScroll()) },
+    'chatStore.isStreaming'(val) {
+      if (val) {
+        if (this._streamInterval) clearInterval(this._streamInterval)
+        this._streamInterval = setInterval(() => {
+          if (!useChatStore().isStreaming) { clearInterval(this._streamInterval); this._streamInterval = null; return }
+          this.autoScroll()
+        }, 200)
+      }
+    },
   },
   methods: {
-    scrollBottom() { this.$refs.bottom?.scrollIntoView({ behavior: 'smooth' }) },
-    renderMd(text) { return marked.parse(text || '') },
+    autoScroll() {
+      const el = this.$refs.msgContainer
+      if (!el) return
+      // 用户向上滚动超过 150px 时不要自动拉到最底部
+      if (el.scrollHeight - el.scrollTop - el.clientHeight > 150) return
+      this.$refs.bottom?.scrollIntoView({ behavior: 'smooth' })
+    },
+    renderMd(text) {
+      let html = marked.parse(text || '')
+      // 修复历史消息中的图片路径：reports/xxx.png → API URL
+      if (this.sessionId) {
+        html = html.replace(
+          /src="(?!https?:\/\/|\/api\/)([^"]*\.(?:png|jpg|jpeg|gif|svg))"/gi,
+          (_, path) => `src="/api/sessions/${this.sessionId}/files/${path.replace(/^\//, '')}"`
+        )
+        html = html.replace(
+          /href="(?!https?:\/\/|\/api\/)([^"]*\.(?:html))"/gi,
+          (_, path) => `href="/api/sessions/${this.sessionId}/files/${path.replace(/^\//, '')}"`
+        )
+      }
+      return html
+    },
     onInput(e) {
       const match = this.text.slice(0, e.target.selectionStart).match(/@([^\s@]*)$/)
       this.showMention = !!match
@@ -177,6 +223,7 @@ export default {
     },
   },
   beforeUnmount() {
+    if (this._streamInterval) { clearInterval(this._streamInterval); this._streamInterval = null }
     const ws = useChatStore().ws
     if (ws) ws.close()
   },
@@ -253,24 +300,120 @@ export default {
   margin: 0 auto;
 }
 
-/* tool status row — thinking 过程指示 */
-.tool-status-row {
+/* ---- tool card ---- */
+.tool-card {
+  margin: 4px 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100% - var(--spacing-2xl) * 2);
+}
+
+.tool-card.running {
+  border-color: var(--color-border-focus);
+  background: #EFF6FF;
+}
+
+.tool-card.done {
+  border-color: var(--color-success);
+}
+
+.tool-card-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-xs) 0;
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
 }
-.tool-dot {
-  width: 16px;
-  text-align: center;
+
+.tool-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
-.tool-text {
+
+.running .tool-card-dot {
+  background: var(--color-border-focus);
+  animation: pulse 1.5s infinite;
+}
+
+.done .tool-card-dot {
+  background: var(--color-success);
+}
+
+.tool-card-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tool-card-status {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}
+
+.tool-card-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.tool-card-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.tool-card-body {
+  padding: 0 var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.card-section {
+  margin-top: var(--spacing-sm);
+}
+
+.card-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-pre {
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-muted);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--color-text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.card-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-md);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .message-row.user {
@@ -419,6 +562,14 @@ export default {
   border: none;
   border-top: 1px solid var(--color-border-light);
   margin: var(--spacing-xl) 0;
+}
+
+.text-content :deep(img) {
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  margin: var(--spacing-sm) 0;
 }
 
 /* sub-agent tag */
