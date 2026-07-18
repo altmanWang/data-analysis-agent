@@ -68,7 +68,7 @@ def create_data_tools(worktree_root: str):
         """执行 Python 数据分析代码并返回输出。
 
         可用库: pandas (pd), numpy (np), matplotlib (plt), json, os, io, base64
-        读取文件请用 read_csv() / read_excel()（自动拼接路径），不要直接用 pd.read_csv()
+        pd.read_csv() / pd.read_excel() 自动拼接工作空间路径，直接用即可
         保存图表到 worktree_root 下: plt.savefig(os.path.join(worktree_root, 'reports', 'xxx.png'))
         HTML 报告中的图表用 base64 内嵌: io.BytesIO() + base64.b64encode() + <img src="data:image/png;base64,...">
 
@@ -81,12 +81,21 @@ def create_data_tools(worktree_root: str):
         import matplotlib.pyplot as plt
 
         def _read_csv(filepath, **kwargs):
-            return pd.read_csv(os.path.join(worktree_root, filepath.lstrip("/")), **kwargs)
+            return pd.read_csv(_resolve_path(filepath), **kwargs)
         def _read_excel(filepath, **kwargs):
-            return pd.read_excel(os.path.join(worktree_root, filepath.lstrip("/")), **kwargs)
+            return pd.read_excel(_resolve_path(filepath), **kwargs)
+
+        # pd 代理：read_csv/read_excel 自动解析路径，其余方法透传到真实 pandas
+        class _PdProxy:
+            def read_csv(self, filepath, **kwargs):
+                return pd.read_csv(_resolve_path(filepath), **kwargs)
+            def read_excel(self, filepath, **kwargs):
+                return pd.read_excel(_resolve_path(filepath), **kwargs)
+            def __getattr__(self, name):
+                return getattr(pd, name)
 
         namespace = {
-            "pd": pd,
+            "pd": _PdProxy(),
             "np": np,
             "plt": plt,
             "json": json,
@@ -103,6 +112,11 @@ def create_data_tools(worktree_root: str):
         old_stdout = sys.stdout
         sys.stdout = stdout_capture
 
+        # 拦截 import pandas：agent 代码中的 import pandas as pd 会用 sys.modules
+        # 里的真实模块覆盖 namespace['pd']，注入代理确保 import 返回我们的代理
+        _real_pandas = sys.modules.get("pandas")
+        sys.modules["pandas"] = _PdProxy()
+
         try:
             exec(code, namespace)
             output = stdout_capture.getvalue()
@@ -111,5 +125,10 @@ def create_data_tools(worktree_root: str):
             return f"执行错误: {str(e)}\n{traceback.format_exc()}"
         finally:
             sys.stdout = old_stdout
+            # 恢复真实 pandas 模块
+            if _real_pandas is not None:
+                sys.modules["pandas"] = _real_pandas
+            elif "pandas" in sys.modules:
+                del sys.modules["pandas"]
 
     return load_csv, load_excel, execute_python

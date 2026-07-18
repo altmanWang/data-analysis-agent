@@ -1,6 +1,6 @@
 <template>
   <aside class="sidebar">
-    <div class="sidebar-header"><h2>数据分析 Agent</h2></div>
+    <div class="sidebar-header" @click="$router.push('/')"><h2>数据分析 Agent</h2></div>
     <div class="create-btn" @click="onCreate">+ 新建会话</div>
     <div class="session-list">
       <div v-for="s in sessionStore.sessions" :key="s.session_id"
@@ -30,9 +30,10 @@ export default {
     return { sessionStore: s }
   },
   methods: {
-    async onCreate() {
-      const s = await this.sessionStore.createSession()
-      this.$router.push(`/session/${s.session_id}`)
+    onCreate() {
+      // 不创建 session，仅回到居中的首页视图
+      // session 只在用户发送消息时由 ChatPanel 自动创建
+      this.$router.push('/')
     },
     async onDelete(id) {
       const wasCurrent = this.sessionStore.currentId === id
@@ -68,6 +69,10 @@ export default {
 .sidebar-header {
   padding: var(--spacing-lg);
   border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+}
+.sidebar-header:hover {
+  background: var(--color-bg-hover);
 }
 .sidebar-header h2 {
   font-size: var(--font-size-lg);

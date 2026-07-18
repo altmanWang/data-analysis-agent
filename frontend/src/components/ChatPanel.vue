@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-panel" :class="{ 'has-messages': sessionId || messages.length > 0 || chatStore.todos.length > 0 }">
+  <div class="chat-panel" :class="{ 'has-messages': messages.length > 0 || chatStore.todos.length > 0 }">
     <div v-if="sessionTitle && sessionTitle !== '新会话'" class="chat-header">{{ sessionTitle }}</div>
     <div v-if="chatStore.todos.length" class="todo-panel">
       <div class="todo-title">分析计划</div>

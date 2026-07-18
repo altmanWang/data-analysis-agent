@@ -3,14 +3,14 @@
 
 import os
 from deepagents import create_deep_agent, FilesystemPermission
-from deepagents.backends import FilesystemBackend
+from deepagents.backends import CompositeBackend, StateBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
 from config import MODEL_CONFIG, SKILLS_DIR, PROJECT_ROOT
 from mysql_saver import MySQLSaver
 from db import get_connection
 
 
-# System Prompt（模板，session_id 在 build_agent 中填充）
+# System Prompt（模板，{session_id} 在 build_agent 中替换为真实 ID）
 MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。
 
 ## 行为准则
@@ -28,16 +28,16 @@ MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/
 | 用户意图         | 输出                          |
 |-----------------|-------------------------------|
 | 快速查看/探索/总结 | 仅文本回复，不生成文件  |
-| 需要可视化/画图   | 文本解释 + generate_chart()    |
-| 要求正式报告/输出html | generate_report(html+md)   |
+| 需要可视化/画图   | execute_python 生成图表并保存到 /reports/                            |
+| 要求正式报告/输出html | execute_python 生成图表 base64 -> generate_report 写入自包含 HTML       |
 | 数据诊断/排查    | 文本 + 可选图表  |
 | 不确定           | 回复分析结果 + 询问是否需要报告 |
 
 ## 意图识别规则
-- 用户说"看看"、"怎么样"、"有多少"、"总结"、"总结分析" → 文本回复即可，不要生成图表或报告
-- 用户说"趋势"、"对比"、"分布"、"画个图" → 需要图表，生成 chart
-- 用户说"报告"、"文档"、"输出html" → 生成 HTML/MD 报告
-- 用户说"可视化" → 对话中回答 + 图表
+- 用户说"看看"、"怎么样"、"有多少"、"总结"、"总结分析" -> 文本回复即可，不要生成图表或报告
+- 用户说"趋势"、"对比"、"分布"、"画个图" -> 需要图表，生成 chart
+- 用户说"报告"、"文档"、"输出html" -> 生成 HTML/MD 报告
+- 用户说"可视化" -> 对话中回答 + 图表
 
 ## 工作流程
 1. 用户上传文件或 @引用文件后，先用 ls 确认文件存在
@@ -47,19 +47,17 @@ MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/
 5. 综合子代理结果，按意图生成对应输出
 
 ## 可用技能（Skills）
-工作空间中有以下专业技能，遇到相关任务时会自动加载：
-- ui-ux-design-pro: HTML 报告设计规范（配色/排版/模板）
-- data-analysis-guide: 数据分析方法论
-- chart-best-practices: 图表选型指南
-- report-templates: 预置报告模板（dashboard/executive/detailed）
+工作空间的 skills/ 目录下有专业技能文件。遇到相关任务时：
+- 先用 ls skills/ 查看可用技能列表
+- 再用 read skills/<skill-name>/SKILL.md 加载具体技能内容
+- 常见场景：生成 HTML 报告时参考 ui-ux 类技能，数据分析时参考 data-analysis 类技能
 
 ## 报告生成规则
-- HTML 报告必须自包含，图表用 base64 内嵌（plt.savefig 到 io.BytesIO，再 base64 编码），不要引用外部 png 文件
-- 示例：import io, base64; buf = io.BytesIO(); plt.savefig(buf, format='png', dpi=150, bbox_inches='tight'); img_base64 = base64.b64encode(buf.getvalue()).decode(); 然后在 HTML 中用 <img src="data:image/png;base64,{img_base64}">
-- 报告保存到 /sandboxes/session_id/reports/ 目录
-- 用户 @ 引用的文件路径如 /sh600176.csv，直接传给 load_csv/load_excel 即可
-- 用 ls /sandboxes/ 可查看所有 sandbox，ls /sandboxes/session_id/ 查看当前工作空间
-- 报告和图表保存在当前工作空间下（generate_report/generate_chart 会自动处理路径）
+- HTML 报告必须自包含，图表用 base64 内嵌，不要引用外部 png 文件
+- 流程：execute_python 生成图表 + print(base64 字符串) -> generate_report 写入自包含 HTML
+- 示例（在 execute_python 中）：import io, base64; buf = io.BytesIO(); plt.savefig(buf, format='png', dpi=150, bbox_inches='tight'); img_base64 = base64.b64encode(buf.getvalue()).decode(); print(img_base64)
+- 然后在 generate_report 的 HTML 中用 <img src="data:image/png;base64,上一步得到的base64">
+- generate_report 自动保存到报告目录
 """
 
 
@@ -74,8 +72,16 @@ def build_agent(session_id: str, tools: list, subagents: list):
     if not os.path.exists(skills_dir):
         os.makedirs(skills_dir, exist_ok=True)
 
-    # root_dir 设为项目根目录，skills 和 sandboxes 都在其下
-    backend = FilesystemBackend(root_dir=PROJECT_ROOT, virtual_mode=True)
+    # CompositeBackend：sandboxes/skills 路由到本地磁盘，其余走 StateBackend
+    # 确保 ls/read_file 等工具返回虚拟路径（/sandboxes/...）而非绝对物理路径
+    sandboxes_dir = os.path.join(PROJECT_ROOT, "sandboxes")
+    backend = CompositeBackend(
+        default=StateBackend(),
+        routes={
+            "/sandboxes/": FilesystemBackend(root_dir=sandboxes_dir, virtual_mode=True),
+            "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=True),
+        },
+    )
 
     # 权限：agent 只能读写 sandboxes/{session_id}/，skills 只读
     permissions = [
@@ -96,7 +102,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
         ),
         FilesystemPermission(
             operations=["read"],
-            paths=["/sandboxes/", "/sandboxes"],
+            paths=["/sandboxes/", "/sandboxes", "/"],
             mode="allow",
         ),
         FilesystemPermission(
@@ -134,24 +140,22 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
 
     # 用闭包创建绑定 worktree_root 的工具实例
     load_csv, load_excel, execute_python = create_data_tools(worktree_root)
-    generate_report, generate_chart = create_report_tools(worktree_root)
+    generate_report = create_report_tools(worktree_root)
 
     return {
         "name": "data-analyst",
         "description": "专门执行单步数据分析任务：加载数据、清洗、统计、画图。接收明确的分析指令，完成并返回结果。",
         "system_prompt": """你是数据分析执行者。你的职责:
 1. 使用 load_csv/load_excel 读取指定的数据文件
-2. 使用 execute_python 执行数据分析代码（pandas/numpy/matplotlib）
-3. 仅在主 Agent 明确要求生成图表时才使用 generate_chart
-4. 将分析结果整理为结构化文本返回给主 Agent
+2. 使用 execute_python 执行数据分析代码（pandas/numpy/matplotlib），图表用 base64 返回
+3. 将分析结果整理为结构化文本返回给主 Agent
 
 注意:
 - 默认只做数据统计和文本分析，不要主动生成图表
-- 主 Agent 说"画图/可视化/图表/趋势/分布"时才调用 generate_chart
+- 主 Agent 说"画图/可视化/图表/趋势/分布"时才在 execute_python 中生成图表
 - 不要在子代理中生成最终报告，只返回分析结果
 - execute_python 中读取文件请用 read_csv('/xxx.csv') 而不是 pd.read_csv()
-- 图表使用 plt.savefig(os.path.join(worktree_root, 'reports', 'xxx.png')) 保存
 - 绝对禁止输出工具源码、文件列表、inspect/dir 结果等调试信息
 - 只返回数据分析的数值结果和统计结论""",
-        "tools": [load_csv, load_excel, execute_python, generate_chart],
+        "tools": [load_csv, load_excel, execute_python, generate_report],
     }
