@@ -72,16 +72,33 @@ async def websocket_endpoint(ws: WebSocket, session_id: str):
                     config={"configurable": {"thread_id": session_id}},
                     version="v2",
                 ):
-                    method = event.get("method")
-                    params = event.get("params", {})
-                    namespace = params.get("namespace", [])
-                    source = "subagent" if namespace else "coordinator"
+                    evt = event.get("event", "")
+                    data = event.get("data", {})
+                    run_id = event.get("run_id", "")
+                    name = event.get("name", "")
 
-                    await ws.send_json({
-                        "type": method,
-                        "payload": params,
-                        "source": source,
-                    })
+                    # 提取 namespace 判断来源
+                    metadata = event.get("metadata", {})
+                    ns = metadata.get("langgraph_node", "")
+
+                    # 映射 LangGraph v2 事件到前端消息
+                    if evt == "on_chat_model_stream" and data.get("chunk"):
+                        chunk = data["chunk"]
+                        if hasattr(chunk, "content") and chunk.content:
+                            await ws.send_json({
+                                "type": "chat.response",
+                                "payload": {"content": chunk.content, "done": False},
+                            })
+                    elif evt == "on_tool_start":
+                        await ws.send_json({
+                            "type": "chat.tool_call",
+                            "payload": {"tool": name, "input": str(data.get("input", {}))[:200]},
+                        })
+                    elif evt == "on_tool_end":
+                        await ws.send_json({
+                            "type": "chat.tool_result",
+                            "payload": {"tool": name, "output": str(data.get("output", ""))[:500]},
+                        })
 
                 # 对话完成，推送更新后的文件树
                 tree = worktree_manager.get_file_tree(session_id)
