@@ -1,6 +1,5 @@
 export function createWS(sessionId, chatStore, fileStore) {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const ws = new WebSocket(`${protocol}//${location.host}/ws/${sessionId}`)
+  const ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`)
 
   ws.onopen = () => console.log('WS connected:', sessionId)
 
