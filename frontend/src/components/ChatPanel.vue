@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-panel" :class="{ 'has-messages': messages.length > 0 || chatStore.todos.length > 0 }">
+  <div class="chat-panel" :class="{ 'has-messages': sessionId || messages.length > 0 || chatStore.todos.length > 0 }">
     <div v-if="sessionTitle && sessionTitle !== '新会话'" class="chat-header">{{ sessionTitle }}</div>
     <div v-if="chatStore.todos.length" class="todo-panel">
       <div class="todo-title">分析计划</div>
@@ -9,8 +9,8 @@
       </div>
     </div>
     <div class="chat-messages" ref="msgContainer">
-      <!-- 无会话时的欢迎提示 -->
-      <div v-if="messages.length === 0 && chatStore.todos.length === 0" class="welcome-hint">
+      <!-- 无会话时的欢迎提示（仅当没有真实 session 时才显示） -->
+      <div v-if="!sessionId && messages.length === 0 && chatStore.todos.length === 0" class="welcome-hint">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="welcome-icon">
           <path d="M21 21H3v-4a2 2 0 012-2h14a2 2 0 012 2v4z"/>
           <path d="M7 15V9a5 5 0 0110 0v6"/>
