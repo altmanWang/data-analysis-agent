@@ -37,7 +37,7 @@ def get_connection() -> pymysql.connections.Connection:
 
 
 def init_db():
-    """初始化所有表"""
+    """初始化所有表（sessions + checkpointer 三张表）"""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -57,5 +57,9 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
         conn.commit()
+
+        # 创建 checkpointer 表
+        from .mysql_saver import MySQLSaver
+        MySQLSaver(conn).setup()
     finally:
         conn.close()
