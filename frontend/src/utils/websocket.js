@@ -100,18 +100,27 @@ export function createWS(sessionId, chatStore, fileStore) {
       ws.send(data)
       return true
     }
-    if (!ws || ws.readyState === WebSocket.CLOSED) {
+    // CONNECTING 或 CLOSED：等待连接建立后发送
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
       chatStore.setWsStatus('reconnecting')
-      reconnectDelay = 500
-      connect()
-      setTimeout(() => {
+      if (!ws || ws.readyState === WebSocket.CLOSED) {
+        reconnectDelay = 500
+        connect()
+      }
+      // 等待连接就绪（轮询 readyState，最多等 5 秒）
+      const maxWait = 5000
+      const start = Date.now()
+      const trySend = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(data)
+        } else if (Date.now() - start < maxWait) {
+          setTimeout(trySend, 100)
         } else {
-          chatStore.addMessage({ role: 'system', content: '连接失败，请刷新页面重试' })
+          chatStore.addMessage({ role: 'system', content: '连接超时，请重试' })
           chatStore.isStreaming = false
         }
-      }, 1500)
+      }
+      setTimeout(trySend, 100)
       return false
     }
     return false

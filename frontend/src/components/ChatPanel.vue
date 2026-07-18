@@ -1,6 +1,6 @@
 <template>
   <div class="chat-panel" :class="{ 'has-messages': messages.length > 0 || chatStore.todos.length > 0 }">
-    <div v-if="sessionTitle" class="chat-header">{{ sessionTitle }}</div>
+    <div v-if="sessionTitle && sessionTitle !== '新会话'" class="chat-header">{{ sessionTitle }}</div>
     <div v-if="chatStore.todos.length" class="todo-panel">
       <div class="todo-title">分析计划</div>
       <div v-for="t in chatStore.todos" :key="t.content" class="todo-item" :class="t.status">
@@ -10,7 +10,7 @@
     </div>
     <div class="chat-messages" ref="msgContainer">
       <!-- 无会话时的欢迎提示 -->
-      <div v-if="isNewSession && messages.length === 0" class="welcome-hint">
+      <div v-if="messages.length === 0 && chatStore.todos.length === 0" class="welcome-hint">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="welcome-icon">
           <path d="M21 21H3v-4a2 2 0 012-2h14a2 2 0 012 2v4z"/>
           <path d="M7 15V9a5 5 0 0110 0v6"/>
@@ -414,7 +414,7 @@ export default {
 
 .has-messages .chat-input {
   padding: var(--spacing-md) var(--spacing-2xl) var(--spacing-lg);
-  border-top: 1px solid var(--color-border-light);
+  border-top: 1px solid #CBD5E1;
 }
 
 .input-row {
@@ -423,7 +423,7 @@ export default {
   gap: var(--spacing-sm);
   max-width: 800px;
   margin: 0 auto;
-  border: 1px solid var(--color-border);
+  border: 1px solid #CBD5E1;
   border-radius: var(--radius-xl);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-card);
