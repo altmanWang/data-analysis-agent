@@ -10,8 +10,13 @@ from mysql_saver import MySQLSaver
 from db import get_connection
 
 
-# System Prompt
+# System Prompt（模板，session_id 在 build_agent 中填充）
 MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。
+
+## 行为准则
+- 简洁回复，直接开始分析，不要每次都说问候语
+- 用户说"hi"/"你好"等简短消息时，简短回应即可（如"你好，请上传文件或描述分析需求"）
+- 不要在每次对话开头重复介绍自己
 
 ## 输出策略（重要）
 根据用户意图决定输出形式，不要总是生成所有格式：
@@ -45,7 +50,9 @@ MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/
 - report-templates: 预置报告模板（dashboard/executive/detailed）
 
 ## 文件路径
-你的工作空间根目录为 /，用户上传文件在根目录（如 /sh600176.csv），报告保存在 /reports/
+- 用户 @ 引用的文件路径如 /sh600176.csv，直接传给 load_csv/load_excel 即可
+- 用 ls /sandboxes/ 可查看所有 sandbox，ls /sandboxes/session_id/ 查看当前工作空间
+- 报告和图表保存在当前工作空间下（generate_report/generate_chart 会自动处理路径）
 """
 
 
@@ -72,12 +79,17 @@ def build_agent(session_id: str, tools: list, subagents: list):
         ),
         FilesystemPermission(
             operations=["read"],
-            paths=[f"/sandboxes/{session_id}/**"],
+            paths=[f"/sandboxes/{session_id}/**", f"/sandboxes/{session_id}"],
             mode="allow",
         ),
         FilesystemPermission(
             operations=["read"],
             paths=["/skills/**"],
+            mode="allow",
+        ),
+        FilesystemPermission(
+            operations=["read"],
+            paths=["/sandboxes/", "/sandboxes"],
             mode="allow",
         ),
         FilesystemPermission(
@@ -111,13 +123,11 @@ def build_agent(session_id: str, tools: list, subagents: list):
 
 def build_data_analyst_subagent(worktree_root: str) -> dict:
     """构建 data-analyst 子代理配置"""
-    from tools import load_csv, load_excel, execute_python, generate_chart
-    from tools.data_tools import set_worktree_root as set_dt_root
-    from tools.report_tools import set_worktree_root as set_rt_root
+    from tools import create_data_tools, create_report_tools
 
-    # 注入 worktree_root 到 contextvars，使工具能获取正确的文件路径
-    set_dt_root(worktree_root)
-    set_rt_root(worktree_root)
+    # 用闭包创建绑定 worktree_root 的工具实例
+    load_csv, load_excel, execute_python = create_data_tools(worktree_root)
+    generate_report, generate_chart = create_report_tools(worktree_root)
 
     return {
         "name": "data-analyst",
@@ -130,7 +140,7 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
 
 注意:
 - 不要在子代理中生成最终报告，只返回分析结果
-- 文件路径格式: /xxx.csv（上传文件在根目录）
-- 图表保存到 /reports/ 目录""",
+- 文件路径格式: /xxx.csv（上传文件在工作空间根目录 /sandboxes/session_id/ 下）
+- 图表保存到 /sandboxes/session_id/reports/ 目录""",
         "tools": [load_csv, load_excel, execute_python, generate_chart],
     }

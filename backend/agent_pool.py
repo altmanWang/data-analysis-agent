@@ -4,9 +4,7 @@
 import time
 import os
 from agent_engine import build_agent, build_data_analyst_subagent
-from tools import load_csv, load_excel, execute_python, generate_report, generate_chart
-from tools.data_tools import set_worktree_root as set_dt_root
-from tools.report_tools import set_worktree_root as set_rt_root
+from tools import create_data_tools, create_report_tools
 from config import PROJECT_ROOT
 
 
@@ -25,9 +23,9 @@ class AgentPool:
 
         worktree = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
 
-        # 注入 worktree_root 到 contextvars，使主 Agent 工具能获取正确的文件路径
-        set_dt_root(worktree)
-        set_rt_root(worktree)
+        # 用闭包创建绑定 worktree_root 的工具实例
+        load_csv, load_excel, execute_python = create_data_tools(worktree)
+        generate_report, generate_chart = create_report_tools(worktree)
 
         tools = [load_csv, load_excel, execute_python, generate_report, generate_chart]
         subagent = build_data_analyst_subagent(worktree)
