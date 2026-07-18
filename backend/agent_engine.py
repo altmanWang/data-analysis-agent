@@ -3,7 +3,7 @@
 
 import os
 from deepagents import create_deep_agent
-from deepagents.backends import CompositeBackend, FilesystemBackend
+from deepagents.backends import FilesystemBackend
 from langchain.chat_models import init_chat_model
 from config import MODEL_CONFIG, SKILLS_DIR, WORKTREE_ROOT
 from mysql_saver import MySQLSaver
@@ -62,12 +62,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
         print(f"[WARNING] Skills dir not found: {skills_dir}")
         os.makedirs(skills_dir, exist_ok=True)
 
-    backend = CompositeBackend(
-        default=FilesystemBackend(root_dir=worktree, virtual_mode=True),
-        routes={
-            "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=False),
-        },
-    )
+    backend = FilesystemBackend(root_dir=worktree, virtual_mode=True)
 
     model = init_chat_model(
         model=MODEL_CONFIG["model"],
