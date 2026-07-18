@@ -59,20 +59,136 @@ export default {
 </script>
 
 <style scoped>
-.worktree-panel { width: 360px; min-width: 360px; height: 100vh; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #f8fafc; }
-.panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; }
-.panel-tabs button { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-size: 13px; color: #718096; }
-.panel-tabs button.active { color: #1a365d; border-bottom: 2px solid #1a365d; font-weight: 500; }
-.file-tree { flex: 1; overflow-y: auto; padding: 8px 0; }
-.tree-header { padding: 8px 12px; font-size: 11px; color: #a0aec0; }
-.tree-empty { padding: 20px; text-align: center; color: #a0aec0; font-size: 13px; }
-.file-preview { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.preview-header { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
-.preview-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718096; }
-.close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #a0aec0; }
-.preview-body { flex: 1; overflow-y: auto; }
-.html-preview { width: 100%; height: 100%; border: none; }
-.md-preview { padding: 16px; line-height: 1.7; font-size: 14px; }
-.img-preview { max-width: 100%; max-height: 100%; object-fit: contain; padding: 16px; }
-.unsupported { display: flex; align-items: center; justify-content: center; height: 100%; color: #a0aec0; }
+.worktree-panel {
+  width: var(--panel-width);
+  min-width: var(--panel-width);
+  height: 100vh;
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-tabs button {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.panel-tabs button:hover {
+  color: var(--color-text-secondary);
+}
+
+.panel-tabs button.active {
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm) 0;
+}
+
+.tree-header {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--font-weight-medium);
+}
+
+.tree-empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
+
+.file-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-muted);
+}
+
+.preview-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-family: monospace;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  line-height: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.close-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
+.preview-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.html-preview {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.md-preview {
+  padding: var(--spacing-lg);
+  line-height: var(--line-height);
+  font-size: var(--font-size-md);
+}
+
+.img-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  padding: var(--spacing-lg);
+}
+
+.unsupported {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
 </style>

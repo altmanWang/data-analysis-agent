@@ -17,8 +17,7 @@ class WorktreeManager:
     def create_worktree(self, session_id: str) -> str:
         """创建沙盒目录结构，返回 worktree 路径"""
         worktree = os.path.join(WORKTREE_ROOT, session_id)
-        os.makedirs(os.path.join(worktree, "uploads"), exist_ok=True)
-        os.makedirs(os.path.join(worktree, "reports"), exist_ok=True)
+        os.makedirs(worktree, exist_ok=True)
         return worktree
 
     def delete_worktree(self, session_id: str) -> None:

@@ -2,17 +2,29 @@
 """报告生成工具：HTML/MD 报告、图表"""
 
 import os
+import contextvars
 from langchain.tools import tool
+
+# 使用 contextvars 注入 worktree_root，无需 LLM 感知此参数
+_worktree_root_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "worktree_root", default=""
+)
+
+
+def set_worktree_root(root: str) -> None:
+    """设置当前上下文的 worktree 根目录"""
+    _worktree_root_ctx.set(root)
 
 
 @tool
-def generate_report(content: str, filename: str, worktree_root: str = "") -> str:
+def generate_report(content: str, filename: str) -> str:
     """生成分析报告文件到 /reports/ 目录。
 
     Args:
         content: 报告内容（HTML 字符串或 Markdown 文本）
         filename: 文件名，如 analysis_report.html 或 report.md
     """
+    worktree_root = _worktree_root_ctx.get()
     full_path = os.path.join(worktree_root, "reports", filename)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     with open(full_path, "w", encoding="utf-8") as f:
@@ -21,7 +33,7 @@ def generate_report(content: str, filename: str, worktree_root: str = "") -> str
 
 
 @tool
-def generate_chart(code: str, filename: str, worktree_root: str = "") -> str:
+def generate_chart(code: str, filename: str) -> str:
     """执行 matplotlib 代码并保存图表到 /reports/ 目录。
 
     Args:
@@ -33,6 +45,7 @@ def generate_chart(code: str, filename: str, worktree_root: str = "") -> str:
     import matplotlib.pyplot as plt
     import numpy as np
 
+    worktree_root = _worktree_root_ctx.get()
     namespace = {"plt": plt, "np": np, "pd": __import__("pandas")}
 
     try:

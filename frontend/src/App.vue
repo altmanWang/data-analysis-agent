@@ -16,9 +16,10 @@ export default {
 </script>
 
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
 .app-container {
-  display: flex; height: 100vh; overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg);
 }
 </style>

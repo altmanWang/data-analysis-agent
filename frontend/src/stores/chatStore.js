@@ -6,6 +6,7 @@ export const useChatStore = defineStore('chat', {
     todos: [],
     isStreaming: false,
     ws: null,
+    wsStatus: 'connecting', // 'connecting' | 'connected' | 'reconnecting' | 'error'
   }),
   actions: {
     addMessage(msg) {
@@ -24,5 +25,6 @@ export const useChatStore = defineStore('chat', {
       if (last) last.done = true
     },
     updateTodos(todos) { this.todos = todos },
+    setWsStatus(status) { this.wsStatus = status },
   },
 })

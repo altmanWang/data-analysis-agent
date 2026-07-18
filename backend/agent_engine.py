@@ -45,7 +45,7 @@ MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/
 - report-templates: 预置报告模板（dashboard/executive/detailed）
 
 ## 文件路径
-你的工作空间根目录为 /，用户上传文件在 /uploads/，报告保存在 /reports/
+你的工作空间根目录为 /，用户上传文件在根目录（如 /sh600176.csv），报告保存在 /reports/
 """
 
 
@@ -112,6 +112,12 @@ def build_agent(session_id: str, tools: list, subagents: list):
 def build_data_analyst_subagent(worktree_root: str) -> dict:
     """构建 data-analyst 子代理配置"""
     from tools import load_csv, load_excel, execute_python, generate_chart
+    from tools.data_tools import set_worktree_root as set_dt_root
+    from tools.report_tools import set_worktree_root as set_rt_root
+
+    # 注入 worktree_root 到 contextvars，使工具能获取正确的文件路径
+    set_dt_root(worktree_root)
+    set_rt_root(worktree_root)
 
     return {
         "name": "data-analyst",
@@ -124,7 +130,7 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
 
 注意:
 - 不要在子代理中生成最终报告，只返回分析结果
-- 文件路径格式: /uploads/xxx.csv
+- 文件路径格式: /xxx.csv（上传文件在根目录）
 - 图表保存到 /reports/ 目录""",
         "tools": [load_csv, load_excel, execute_python, generate_chart],
     }

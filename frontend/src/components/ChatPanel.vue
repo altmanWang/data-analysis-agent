@@ -4,15 +4,19 @@
     <div v-if="chatStore.todos.length" class="todo-panel">
       <div class="todo-title">分析计划</div>
       <div v-for="t in chatStore.todos" :key="t.content" class="todo-item" :class="t.status">
-        <span>{{ t.status === 'completed' ? '√' : t.status === 'in_progress' ? '●' : '○' }}</span>
+        <span class="todo-dot">{{ t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '●' : '○' }}</span>
         <span>{{ t.content }}</span>
       </div>
     </div>
     <div class="chat-messages" ref="msgContainer">
-      <div v-for="(msg, i) in messages" :key="i" class="bubble" :class="msg.role">
-        <div v-if="msg.role !== 'user'" class="role-label">Agent</div>
-        <div class="text-content" v-html="renderMd(msg.content)"></div>
-        <div v-if="msg.source === 'subagent'" class="sub-tag">子代理</div>
+      <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
+        <div v-if="msg.role !== 'user'" class="msg-avatar">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+        </div>
+        <div class="msg-body">
+          <div class="text-content" v-html="renderMd(msg.content)"></div>
+          <div v-if="msg.source === 'subagent'" class="sub-tag">子代理</div>
+        </div>
       </div>
       <div ref="bottom" />
     </div>
@@ -22,14 +26,16 @@
         <div v-if="mentionFiles.length === 0" class="mention-empty">无匹配文件</div>
       </div>
       <div class="input-row">
-        <label class="upload-btn">
-          +
+        <label class="upload-btn" title="上传文件">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <input type="file" hidden @change="onUpload" accept=".csv,.xlsx,.xls" />
         </label>
         <textarea ref="input" v-model="text" @keydown.enter.exact.prevent="send"
           @keydown.escape="text=''" @input="onInput"
           :disabled="sessionStatus !== 'active'" placeholder="输入分析需求，@ 引用文件..." rows="1" />
-        <button @click="send" :disabled="!text.trim() || sessionStatus !== 'active'" class="send-btn">发送</button>
+        <button @click="send" :disabled="!text.trim() || sessionStatus !== 'active'" class="send-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -121,35 +127,375 @@ export default {
 </script>
 
 <style scoped>
-.chat-panel { flex: 1; display: flex; flex-direction: column; height: 100vh; background: white; }
-.chat-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1a365d; }
-.chat-messages { flex: 1; overflow-y: auto; padding: 16px; }
-.bubble { margin-bottom: 12px; max-width: 85%; }
-.bubble.user { margin-left: auto; }
-.role-label { font-size: 11px; color: #a0aec0; margin-bottom: 2px; }
-.sub-tag { display: inline-block; font-size: 10px; background: #edf2f7; color: #718096; padding: 1px 6px; border-radius: 3px; margin-top: 4px; }
-.text-content { font-size: 14px; line-height: 1.7; word-break: break-word; }
-.text-content :deep(p) { margin-bottom: 8px; }
-.text-content :deep(code) { background: #edf2f7; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
-.text-content :deep(pre) { background: #2d3748; color: #e2e8f0; padding: 12px; border-radius: 6px; overflow-x: auto; }
-.text-content :deep(table) { border-collapse: collapse; }
-.text-content :deep(th), .text-content :deep(td) { border: 1px solid #e2e8f0; padding: 8px 12px; }
-.text-content :deep(th) { background: #edf2f7; }
-.chat-input { padding: 12px 16px; border-top: 1px solid #e2e8f0; position: relative; }
-.input-row { display: flex; align-items: center; gap: 8px; }
-textarea { flex: 1; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; resize: none; outline: none; font-family: inherit; }
-textarea:focus { border-color: #3182ce; }
-.send-btn { padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
-.send-btn:disabled { background: #a0aec0; cursor: not-allowed; }
-.upload-btn { cursor: pointer; font-size: 22px; padding: 8px; color: #718096; }
-.upload-btn:hover { color: #1a365d; }
-.mention-dropdown { position: absolute; bottom: 100%; left: 16px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10; min-width: 250px; }
-.mention-item { padding: 8px 12px; cursor: pointer; font-size: 13px; }
-.mention-item:hover { background: #ebf8ff; }
-.mention-empty { padding: 8px 12px; color: #a0aec0; font-size: 13px; }
-.todo-panel { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-.todo-title { font-size: 12px; color: #718096; margin-bottom: 6px; font-weight: 600; }
-.todo-item { font-size: 13px; padding: 3px 0; display: flex; align-items: center; gap: 6px; }
-.todo-item.completed { color: #a0aec0; text-decoration: line-through; }
-.todo-item.in_progress { color: #2b6cb0; font-weight: 500; }
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-card);
+}
+
+/* ---- header ---- */
+.chat-header {
+  padding: var(--spacing-md) var(--spacing-2xl);
+  border-bottom: 1px solid var(--color-border-light);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  flex-shrink: 0;
+}
+
+/* ---- messages area ---- */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-2xl) 0;
+  background: var(--color-bg);
+}
+
+.message-row {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-2xl);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.message-row.user {
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.msg-body {
+  min-width: 0;
+  flex: 1;
+}
+
+/* user message */
+.message-row.user .msg-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.message-row.user .text-content {
+  background: var(--color-bg-muted);
+  color: var(--color-text);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  max-width: 75%;
+  line-height: var(--line-height);
+}
+
+/* assistant message — no bubble, clean text */
+.message-row:not(.user) .text-content {
+  color: var(--color-text);
+  padding: 0;
+  line-height: 1.8;
+}
+
+.text-content {
+  font-size: var(--font-size-md);
+  word-break: break-word;
+}
+
+/* ---- markdown content ---- */
+.text-content :deep(p) {
+  margin-bottom: var(--spacing-md);
+}
+.text-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.text-content :deep(code) {
+  background: var(--color-bg-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+  color: var(--color-secondary);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+}
+
+.text-content :deep(pre) {
+  background: #1a1a2e;
+  color: #e2e8f0;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  margin: var(--spacing-md) 0;
+  font-size: var(--font-size-base);
+}
+
+.text-content :deep(pre code) {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.text-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--spacing-md) 0;
+  font-size: var(--font-size-base);
+}
+
+.text-content :deep(th),
+.text-content :deep(td) {
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+}
+
+.text-content :deep(th) {
+  background: var(--color-bg-muted);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.text-content :deep(tr:hover td) {
+  background: var(--color-bg-muted);
+}
+
+.text-content :deep(blockquote) {
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--spacing-md);
+  color: var(--color-text-secondary);
+  margin: var(--spacing-md) 0;
+}
+
+.text-content :deep(ul),
+.text-content :deep(ol) {
+  padding-left: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+}
+
+.text-content :deep(li) {
+  margin-bottom: var(--spacing-xs);
+}
+
+.text-content :deep(a) {
+  color: var(--color-secondary);
+  text-decoration: none;
+}
+.text-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.text-content :deep(h1),
+.text-content :deep(h2),
+.text-content :deep(h3) {
+  color: var(--color-text);
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.text-content :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-border-light);
+  margin: var(--spacing-xl) 0;
+}
+
+/* sub-agent tag */
+.sub-tag {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  background: var(--color-border-light);
+  color: var(--color-text-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-xs);
+}
+
+/* ---- input area ---- */
+.chat-input {
+  padding: var(--spacing-md) var(--spacing-2xl) var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+  position: relative;
+  background: var(--color-bg-card);
+  flex-shrink: 0;
+}
+
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-sm);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+textarea {
+  flex: 1;
+  padding: var(--spacing-sm) 0;
+  border: none;
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  color: var(--color-text);
+  background: transparent;
+  max-height: 120px;
+}
+
+textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+textarea:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.send-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--color-text);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.send-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.send-btn:disabled {
+  background: var(--color-border);
+  cursor: not-allowed;
+}
+
+.upload-btn {
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-md);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+}
+
+.upload-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+/* ---- @mention dropdown ---- */
+.mention-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: var(--spacing-2xl);
+  right: var(--spacing-2xl);
+  max-width: 800px;
+  margin: 0 auto var(--spacing-xs);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-dropdown);
+  z-index: var(--z-dropdown);
+}
+
+.mention-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  transition: background var(--transition-fast);
+}
+
+.mention-item:hover {
+  background: var(--color-bg-muted);
+}
+
+.mention-item:first-child {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.mention-item:last-child {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.mention-empty {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
+
+/* ---- todo panel ---- */
+.todo-panel {
+  padding: var(--spacing-md) var(--spacing-2xl);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+  flex-shrink: 0;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.todo-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.3px;
+}
+
+.todo-item {
+  font-size: var(--font-size-base);
+  padding: var(--spacing-xs) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-secondary);
+}
+
+.todo-dot {
+  min-width: 16px;
+  text-align: center;
+  font-size: var(--font-size-xs);
+}
+
+.todo-item.completed {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.todo-item.in_progress {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.todo-item.in_progress .todo-dot {
+  color: var(--color-secondary);
+}
 </style>

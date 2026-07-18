@@ -23,14 +23,14 @@ async def get_file_tree(session_id: str):
 
 @router.post("")
 async def upload_file(session_id: str, file: UploadFile = File(...)):
-    """上传文件到沙盒 uploads 目录"""
+    """上传文件到沙盒根目录"""
     session = session_manager.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     if session["status"] != "active":
         raise HTTPException(status_code=400, detail="会话非 active 状态")
 
-    upload_dir = os.path.join(WORKTREE_ROOT, session_id, "uploads")
+    upload_dir = os.path.join(WORKTREE_ROOT, session_id)
     os.makedirs(upload_dir, exist_ok=True)
 
     # 安全：仅取文件名，防止路径穿越（如 ../../etc/passwd）
@@ -44,7 +44,7 @@ async def upload_file(session_id: str, file: UploadFile = File(...)):
 
     return {
         "message": "上传成功",
-        "path": f"/uploads/{file.filename}",
+        "path": f"/{file.filename}",
         "size": len(content),
     }
 

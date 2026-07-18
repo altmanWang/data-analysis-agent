@@ -46,21 +46,121 @@ export default {
 </script>
 
 <style scoped>
-.sidebar { width: 260px; min-width: 260px; height: 100vh; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #f8fafc; }
-.sidebar-header { padding: 16px; border-bottom: 1px solid #e2e8f0; }
-.sidebar-header h2 { font-size: 16px; color: #1a365d; }
-.create-btn { margin: 12px; padding: 10px; text-align: center; cursor: pointer; background: #1a365d; color: white; border-radius: 6px; font-size: 14px; }
-.create-btn:hover { background: #2a4a7f; }
-.session-list { flex: 1; overflow-y: auto; }
-.session-item { display: flex; align-items: center; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #edf2f7; font-size: 13px; }
-.session-item:hover { background: #edf2f7; }
-.session-item.active { background: #ebf8ff; border-left: 3px solid #3182ce; }
-.item-content { flex: 1; overflow: hidden; }
-.item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.item-meta { display: flex; gap: 8px; font-size: 11px; color: #718096; margin-top: 2px; }
-.status.active { color: #38a169; }
-.status.archived { color: #a0aec0; }
-.del-btn { background: none; border: none; color: #cbd5e0; font-size: 16px; cursor: pointer; padding: 0 4px; }
-.del-btn:hover { color: #e53e3e; }
-.empty { text-align: center; color: #a0aec0; padding: 20px; font-size: 13px; }
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
+}
+
+.sidebar-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+.sidebar-header h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  letter-spacing: -0.01em;
+}
+
+.create-btn {
+  margin: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: center;
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+.create-btn:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xs) 0;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border-light);
+  border-left: 3px solid transparent;
+  font-size: var(--font-size-base);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.session-item:hover {
+  background: var(--color-bg-hover);
+}
+.session-item.active {
+  background: var(--color-bg-active);
+  border-left-color: var(--color-secondary);
+}
+
+.item-content {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.item-meta {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+.status.active {
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+.status.archiving {
+  color: var(--color-warning);
+}
+.status.archived {
+  color: var(--color-text-muted);
+}
+
+.del-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  padding: 0 var(--spacing-xs);
+  line-height: 1;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.del-btn:hover {
+  color: var(--color-error);
+  transform: scale(1.15);
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--spacing-3xl) var(--spacing-lg);
+  font-size: var(--font-size-base);
+}
 </style>
