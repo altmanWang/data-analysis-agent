@@ -4,7 +4,8 @@
 参照 langgraph/checkpoint/sqlite/__init__.py 源码适配为 pymysql。
 """
 
-from typing import Any, Iterator, Optional, Sequence, Tuple
+from typing import Any, AsyncIterator, Iterator, Optional, Sequence, Tuple
+import asyncio
 
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
@@ -324,3 +325,26 @@ class MySQLSaver(BaseCheckpointSaver):
                 )
         finally:
             cur.close()
+
+    # ─── Async wrappers (LangGraph astream 需要) ───
+
+    async def aget_tuple(self, config: dict) -> Optional[CheckpointTuple]:
+        return await asyncio.to_thread(self.get_tuple, config)
+
+    async def aput(
+        self, config: dict, checkpoint: Checkpoint,
+        metadata: CheckpointMetadata, new_versions: ChannelVersions,
+    ) -> dict:
+        return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
+    async def aput_writes(
+        self, config: dict, writes: Sequence[Tuple[str, Any]], task_id: str,
+    ) -> None:
+        return await asyncio.to_thread(self.put_writes, config, writes, task_id)
+
+    async def alist(
+        self, config: Optional[dict], *, filter: Optional[dict] = None,
+        before: Optional[dict] = None, limit: Optional[int] = None,
+    ) -> AsyncIterator[CheckpointTuple]:
+        for item in self.list(config, filter=filter, before=before, limit=limit):
+            yield item
