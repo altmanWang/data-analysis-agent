@@ -27,7 +27,7 @@ class AgentPool:
         load_csv, load_excel, execute_python = create_data_tools(worktree)
         generate_report = create_report_tools(worktree)
 
-        tools = [load_csv, load_excel, execute_python, generate_report]
+        tools = [load_csv]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])
         self._agents[session_id] = (agent, time.time())
