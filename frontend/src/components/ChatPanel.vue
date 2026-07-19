@@ -92,7 +92,6 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { useAnalysisStream } from '../composables/useAnalysisStream'
-import { useAnalysisMessages } from '../composables/useAnalysisMessages'
 import { useSessionStore } from '../stores/sessionStore'
 import { useFileStore } from '../stores/fileStore'
 
@@ -119,12 +118,15 @@ const hasValidThread = computed(() => props.id && props.id !== 'new')
 const stream = hasValidThread.value
   ? useAnalysisStream(props.id)
   : null
-const { timeline: timelineItems } = stream
-  ? useAnalysisMessages(stream)
-  : { timeline: ref([]) }
+
+// ── 时间线：直接用 composable 的 items ──
+const timelineItems = computed(() => {
+  if (!stream) return []
+  return stream.items?.value || []
+})
 
 const isLoading = computed(() => stream ? stream.isLoading.value : false)
-const hasContent = computed(() => (stream ? timelineItems.value.length : 0) > 0 || todos.value.length > 0)
+const hasContent = computed(() => timelineItems.value.length > 0 || todos.value.length > 0)
 
 // ── 会话信息加载 ──
 onMounted(async () => {
@@ -135,7 +137,7 @@ onMounted(async () => {
       sessionTitle.value = m.title
       sessionStatus.value = m.status
       useFileStore().fetchTree(props.id)
-      // 加载历史消息
+      // 加载历史消息（SDK 已自动水合，此处仅作补充元数据用途）
       if (stream) await stream.loadHistory()
     } catch {
       router.push('/')
@@ -217,7 +219,7 @@ async function send() {
     return
   }
 
-  // 已有有效 session：直接通过 stream 发送
+  // 已有有效 session：通过 SDK 的 submit 发送
   try {
     await stream.submit({ content })
   } catch (err) {

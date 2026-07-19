@@ -41,3 +41,9 @@ app.include_router(command_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/assistants/{assistant_id}")
+async def get_assistant(assistant_id: str):
+    """@langchain/vue SDK 需要的 assistant 信息端点"""
+    return {"assistant_id": assistant_id, "name": "数据分析 Agent", "graph_id": assistant_id}

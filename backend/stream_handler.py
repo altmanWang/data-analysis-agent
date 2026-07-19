@@ -169,6 +169,7 @@ def _safe_serialize_output(raw: Any) -> dict[str, Any]:
 
 
 @router.post("/{thread_id}/stream")
+@router.post("/{thread_id}/stream/events")  # @langchain/vue SDK 别名
 async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
     """Protocol v2 SSE 事件流
 
