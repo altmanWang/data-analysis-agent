@@ -51,6 +51,35 @@ def create_data_tools(worktree_root: str):
         return json.dumps(info, ensure_ascii=False, default=str)
 
     @tool
+    def load_excel(file_path: str, sheet_name: str = "0", offset: int = 0) -> str:
+        """加载 Excel 文件，返回列信息和分页预览数据（每页 20 行）。
+
+        Args:
+            file_path:  文件路径，如 /data.xlsx 或完整虚拟路径
+            sheet_name: 目标 Sheet 名称，默认 "0"（即第一个 sheet）；传入 Sheet 名称或索引
+            offset:     数据偏移量，默认 0，每页返回 20 行
+        """
+        full_path = _resolve_path(file_path)
+        try:
+            sheet_name = int(sheet_name)
+        except ValueError:
+            pass
+        df = pd.read_excel(full_path, sheet_name=sheet_name)
+        page_size = 20
+        total_rows = len(df)
+        info = {
+            "shape": list(df.shape),
+            "columns": list(df.columns),
+            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+            "preview": df.iloc[offset:offset + page_size].to_dict(orient="records"),
+            "total_rows": total_rows,
+            "offset": offset,
+            "page_size": page_size,
+            "describe": json.loads(df.describe(include="all").to_json(force_ascii=False)),
+        }
+        return json.dumps(info, ensure_ascii=False, default=str)
+
+    @tool
     def execute_python(code: str) -> str:
         """执行 Python 数据分析代码并返回输出。
 

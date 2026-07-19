@@ -4,7 +4,7 @@
 import time
 import os
 from agent_engine import build_agent, build_data_analyst_subagent
-from tools import create_data_tools, create_report_tools
+from tools import create_data_tools
 from config import PROJECT_ROOT
 
 
@@ -25,8 +25,6 @@ class AgentPool:
 
         # 用闭包创建绑定 worktree_root 的工具实例
         load_csv, load_excel, execute_python = create_data_tools(worktree)
-        generate_report = create_report_tools(worktree)
-
         tools = [load_csv]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])

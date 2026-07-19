@@ -3,7 +3,7 @@
 
 import os
 from deepagents import create_deep_agent, FilesystemPermission
-from deepagents.backends import CompositeBackend, StateBackend, FilesystemBackend
+from deepagents.backends import CompositeBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
 from config import MODEL_CONFIG, SKILLS_DIR, PROJECT_ROOT
 from mysql_saver import MySQLSaver
@@ -25,13 +25,12 @@ def build_agent(session_id: str, tools: list, subagents: list):
     if not os.path.exists(skills_dir):
         os.makedirs(skills_dir, exist_ok=True)
 
-    # CompositeBackend：sandboxes/skills 路由到本地磁盘，其余走 StateBackend
-    # 确保 ls/read_file 等工具返回虚拟路径（/sandboxes/...）而非绝对物理路径
-    sandboxes_dir = os.path.join(PROJECT_ROOT, "sandboxes")
+    # CompositeBackend：所有文件操作默认写入 sandboxes/{session_id}，skills 只读路由
+    # 确保 ls/read_file/write_file 等工具返回虚拟路径而非绝对物理路径
+    sandboxes_dir = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
     backend = CompositeBackend(
-        default=StateBackend(),
+        default=FilesystemBackend(root_dir=sandboxes_dir, virtual_mode=True),
         routes={
-            "/sandboxes/": FilesystemBackend(root_dir=sandboxes_dir, virtual_mode=True),
             "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=True),
         },
     )
@@ -39,7 +38,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
     # 权限：agent 只能读写 sandboxes/{session_id}/，skills 只读
     permissions = [
         FilesystemPermission(
-            operations=["read"],
+            operations=["read", "write"],
             paths=[f"/sandboxes/{session_id}/**"],
             mode="allow",
         ),
@@ -78,11 +77,10 @@ def build_agent(session_id: str, tools: list, subagents: list):
 
 def build_data_analyst_subagent(worktree_root: str) -> dict:
     """构建 data-analyst 子代理配置"""
-    from tools import create_data_tools, create_report_tools
+    from tools import create_data_tools
 
     # 用闭包创建绑定 worktree_root 的工具实例
     load_csv, load_excel, execute_python = create_data_tools(worktree_root)
-    generate_report = create_report_tools(worktree_root)
 
     return {
         "name": "data-analyst",
