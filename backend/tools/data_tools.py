@@ -26,39 +26,26 @@ def create_data_tools(worktree_root: str):
         return os.path.join(worktree_root, clean)
 
     @tool
-    def load_csv(file_path: str, encoding: str = "utf-8") -> str:
-        """加载 CSV 文件，返回列信息和前 20 行预览。
+    def load_csv(file_path: str, encoding: str = "utf-8", offset: int = 0) -> str:
+        """加载 CSV 文件，返回列信息和分页预览数据（每页 20 行）。
 
         Args:
             file_path: 文件路径，如 /sh600176.csv 或完整虚拟路径
             encoding: 文件编码，默认 utf-8
+            offset:   数据偏移量，默认 0，每页返回 20 行
         """
         full_path = _resolve_path(file_path)
         df = pd.read_csv(full_path, encoding=encoding)
+        page_size = 20
+        total_rows = len(df)
         info = {
             "shape": list(df.shape),
             "columns": list(df.columns),
             "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "preview": df.head(20).to_dict(orient="records"),
-            "describe": json.loads(df.describe(include="all").to_json(force_ascii=False)),
-        }
-        return json.dumps(info, ensure_ascii=False, default=str)
-
-    @tool
-    def load_excel(file_path: str, sheet_name: str = "0") -> str:
-        """加载 Excel 文件，返回列信息和前 20 行预览。
-
-        Args:
-            file_path: 文件路径，如 /data.xlsx 或完整虚拟路径
-            sheet_name: 表名或索引（0 表示第一个表）
-        """
-        full_path = _resolve_path(file_path)
-        df = pd.read_excel(full_path, sheet_name=sheet_name)
-        info = {
-            "shape": list(df.shape),
-            "columns": list(df.columns),
-            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "preview": df.head(20).to_dict(orient="records"),
+            "preview": df.iloc[offset:offset + page_size].to_dict(orient="records"),
+            "total_rows": total_rows,
+            "offset": offset,
+            "page_size": page_size,
             "describe": json.loads(df.describe(include="all").to_json(force_ascii=False)),
         }
         return json.dumps(info, ensure_ascii=False, default=str)
