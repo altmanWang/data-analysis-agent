@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any, AsyncIterator
 
@@ -31,6 +32,7 @@ from protocol_types import (
     make_event,
 )
 from session_manager import session_manager
+from db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,32 @@ _KEEPALIVE_INTERVAL = 15  # 秒
 
 
 # ── 辅助函数 ────────────────────────────────────────────────
+
+
+def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> None:
+    """同步写入 message_history 表（供前端 loadHistory 使用）"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO message_history (thread_id, role, content, tool_name, tool_args, tool_result, tool_status, extra) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                thread_id,
+                role,
+                content[:10000] if content else "",
+                kwargs.get("tool_name"),
+                kwargs.get("tool_args"),
+                kwargs.get("tool_result"),
+                kwargs.get("tool_status"),
+                kwargs.get("extra"),
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass  # 不阻塞流式传输
 
 
 def format_sse(event: ProtocolEvent) -> str:
@@ -163,6 +191,8 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
     namespaces: list[ProtocolNamespace] | None = subscription.namespaces
     since: int | None = subscription.since
     user_content: str | None = body.get("content")
+    if user_content:
+        _save_message(thread_id, "user", user_content)
 
     # ── 验证会话 ──
     session = session_manager.get(thread_id)
@@ -186,6 +216,7 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
         tool_name_map: dict[str, str] = {}
         content_block_index = 0
         run_id = ""
+        current_text = ""  # 累积 assistant 消息文本
 
         try:
             # ── Phase 1: 重放缓冲区历史事件 ──
@@ -336,6 +367,7 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                     text: str = chunk.content or ""
                     if not text:
                         continue
+                    current_text += text
                     evt = await _emit(
                         thread_id,
                         method="messages/update",
@@ -382,6 +414,8 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                         },
                     )
                     yield format_sse(evt)
+                    _save_message(thread_id, "assistant", current_text)
+                    current_text = ""
 
                 # ── on_tool_start → tool-started ──
                 elif evt_type == "on_tool_start":
@@ -391,6 +425,10 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                     tool_name: str = event.get("name", "")
                     raw_input: dict[str, Any] = evt_data.get("input", {})
                     tool_name_map[tool_run_id] = tool_name
+                    safe_input = _safe_serialize_input(raw_input)
+                    logger.debug("tool-started: name=%s input_keys=%s safe_keys=%s",
+                        tool_name, list(raw_input.keys()) if isinstance(raw_input, dict) else type(raw_input),
+                        list(safe_input.keys()) if isinstance(safe_input, dict) else type(safe_input))
 
                     evt = await _emit(
                         thread_id,
@@ -400,10 +438,13 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                             "event": "tool-started",
                             "tool_call_id": tool_run_id,
                             "tool_name": tool_name,
-                            "input": _safe_serialize_input(raw_input),
+                            "input": safe_input,
                         },
                     )
                     yield format_sse(evt)
+                    _save_message(thread_id, "tool", tool_name=tool_name,
+                        tool_args=json.dumps(raw_input, ensure_ascii=False, default=str)[:5000] if raw_input else None,
+                        tool_status="running")
 
                 # ── on_tool_end → tool-finished ──
                 elif evt_type == "on_tool_end":
@@ -414,6 +455,10 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                         tool_run_id, event.get("name", "")
                     )
                     raw_output: Any = evt_data.get("output", {})
+                    safe_output = _safe_serialize_output(raw_output)
+                    logger.debug("tool-finished: name=%s output_type=%s output_keys=%s",
+                        tool_name, type(raw_output).__name__,
+                        list(safe_output.keys()) if isinstance(safe_output, dict) else type(safe_output))
                     evt = await _emit(
                         thread_id,
                         method="tools/update",
@@ -422,10 +467,13 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                             "event": "tool-finished",
                             "tool_call_id": tool_run_id,
                             "tool_name": tool_name,
-                            "output": _safe_serialize_output(raw_output),
+                            "output": safe_output,
                         },
                     )
                     yield format_sse(evt)
+                    _save_message(thread_id, "tool", tool_name=tool_name,
+                        tool_result=json.dumps(raw_output, ensure_ascii=False, default=str)[:5000] if raw_output else None,
+                        tool_status="done")
 
             # 正常完成 — 清除 task 引用
             stream_task = None

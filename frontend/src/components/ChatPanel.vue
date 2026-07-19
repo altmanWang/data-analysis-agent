@@ -135,6 +135,8 @@ onMounted(async () => {
       sessionTitle.value = m.title
       sessionStatus.value = m.status
       useFileStore().fetchTree(props.id)
+      // 加载历史消息
+      if (stream) await stream.loadHistory()
     } catch {
       router.push('/')
     }

@@ -61,5 +61,24 @@ def init_db():
         # 创建 checkpointer 表
         from mysql_saver import MySQLSaver
         MySQLSaver.from_conn_string(conn)
+
+        # 创建 message_history 表
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS message_history (
+                    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    thread_id   VARCHAR(36) NOT NULL COMMENT '线程 ID',
+                    role        VARCHAR(16) NOT NULL COMMENT 'user / assistant / tool',
+                    content     LONGTEXT COMMENT '消息内容',
+                    tool_name   VARCHAR(128) COMMENT '工具名 (仅 tool 角色)',
+                    tool_args   JSON COMMENT '工具参数 (仅 tool 角色)',
+                    tool_result JSON COMMENT '工具结果 (仅 tool 角色)',
+                    tool_status VARCHAR(16) COMMENT 'running / done (仅 tool 角色)',
+                    extra       JSON COMMENT '额外元数据',
+                    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_thread (thread_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """)
+        conn.commit()
     finally:
         conn.close()

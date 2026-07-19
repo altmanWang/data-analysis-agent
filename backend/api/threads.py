@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from session_manager import session_manager
 from mysql_saver import MySQLSaver
 from agent_pool import agent_pool
+from db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,11 @@ async def get_thread(thread_id: str):
 
 @router.get("/{thread_id}/state")
 async def get_thread_state(thread_id: str):
-    """读取线程最新检查点状态（channel_values）"""
+    """读取线程最新检查点状态"""
     saver = _get_saver()
+    config = {"configurable": {"thread_id": thread_id}}
     try:
-        checkpoint_tuple = await saver.aget_tuple(
-            {"configurable": {"thread_id": thread_id}}
-        )
+        checkpoint_tuple = await saver.aget_tuple(config)
     except Exception as e:
         logger.error("读取状态失败 thread_id=%s: %s", thread_id, e)
         raise HTTPException(status_code=500, detail="读取状态失败")
@@ -58,8 +58,28 @@ async def get_thread_state(thread_id: str):
     if not checkpoint_tuple:
         raise HTTPException(status_code=404, detail="无检查点数据")
 
-    values = checkpoint_tuple.checkpoint.get("channel_values", {})
+    values = dict(checkpoint_tuple.checkpoint.get("channel_values", {}))
     return {"values": values}
+
+
+@router.get("/{thread_id}/messages")
+async def get_thread_messages(thread_id: str):
+    """读取线程消息历史（从 message_history 表）"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT role, content, tool_name, tool_args, tool_result, tool_status "
+                "FROM message_history WHERE thread_id = %s ORDER BY id ASC",
+                (thread_id,),
+            )
+            rows = cur.fetchall()
+        return [
+            {k: v for k, v in zip(["role", "content", "tool_name", "tool_args", "tool_result", "tool_status"], row)}
+            for row in rows
+        ]
+    finally:
+        conn.close()
 
 
 @router.get("/{thread_id}/history")

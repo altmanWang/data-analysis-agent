@@ -29,6 +29,9 @@ export default {
     s.fetchSessions()
     return { sessionStore: s }
   },
+  watch: {
+    '$route'() { this.sessionStore.fetchSessions() }
+  },
   methods: {
     onCreate() {
       // 不创建 session，仅回到居中的首页视图
