@@ -10,8 +10,25 @@ from mysql_saver import MySQLSaver
 from db import get_connection
 
 
+def _discover_skills(skills_dir: str) -> list[str]:
+    """扫描 skills 目录，返回所有包含 SKILL.md 的子目录路径列表。
+    
+    deepagents 的 skills 参数期望每个技能一个目录路径（如 /skills/ui-ux-pro-max/），
+    而非父目录。此函数自动发现所有可用技能。
+    """
+    if not os.path.isdir(skills_dir):
+        return []
+    discovered = []
+    for entry in os.scandir(skills_dir):
+        if entry.is_dir() and os.path.isfile(os.path.join(entry.path, "SKILL.md")):
+            discovered.append(f"/skills/{entry.name}/")
+    return discovered
+
+
 # System Prompt（模板，{session_id} 在 build_agent 中替换为真实 ID）
-MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。"""
+MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。
+## 数据分析工具
+使用 data-analyst 子代理执行具体的数据分析任务。"""
 
 
 def build_agent(session_id: str, tools: list, subagents: list):
@@ -61,12 +78,14 @@ def build_agent(session_id: str, tools: list, subagents: list):
         max_tokens=8192,    # 限制单次响应最大 token，减少连接中断概率
     )
 
+    # 自动发现 skills 目录下所有有效技能
+    skill_paths = _discover_skills(skills_dir)
     agent = create_deep_agent(
         model=model,
         backend=backend,
         tools=tools,
         subagents=subagents,
-        skills=["/skills"] if os.path.exists(skills_dir) else [],
+        skills=skill_paths,
         permissions=permissions,
         system_prompt=MAIN_SYSTEM_PROMPT,
         checkpointer=checkpointer,
@@ -82,9 +101,13 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
     # 用闭包创建绑定 worktree_root 的工具实例
     load_csv, load_excel, execute_python = create_data_tools(worktree_root)
 
+    # 子代理也需要显式配置技能（不继承父 agent）
+    skill_paths = _discover_skills(SKILLS_DIR)
+
     return {
         "name": "data-analyst",
-        "description": "数据分析执行者。",
-        "system_prompt": """你是数据分析执行者。""",
+        "description": "数据分析执行者，负责读取数据、生成 HTML 报告。",
+        "system_prompt": """你是数据分析执行者，负责读取 CSV/Excel 数据、执行分析代码并生成 HTML 报告，灵活加载skill美化HTML报告。""",
         "tools": [load_csv],
+        "skills": skill_paths,
     }
