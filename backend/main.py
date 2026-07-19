@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from db import init_db
 from api.sessions import router as sessions_router
 from api.files import router as files_router
-from ws_handler import router as ws_router
+from stream_handler import router as stream_router
+from command_handler import router as command_router
+from api.threads import router as threads_router
 
 
 @asynccontextmanager
@@ -31,7 +33,9 @@ app.add_middleware(
 # 挂载路由
 app.include_router(sessions_router)
 app.include_router(files_router)
-app.include_router(ws_router)
+app.include_router(threads_router)
+app.include_router(stream_router)
+app.include_router(command_router)
 
 
 @app.get("/health")
