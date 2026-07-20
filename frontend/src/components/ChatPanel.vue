@@ -94,9 +94,11 @@ import { marked } from 'marked'
 import { useAnalysisStream } from '../composables/useAnalysisStream'
 import { useSessionStore } from '../stores/sessionStore'
 import { useFileStore } from '../stores/fileStore'
+import { useChatStore } from '../stores/chatStore'
 
 const props = defineProps({ id: String })
 const router = useRouter()
+const chatStore = useChatStore()
 
 // ── 本地状态 ──
 const text = ref('')
@@ -119,20 +121,18 @@ const stream = hasValidThread.value
   ? useAnalysisStream(props.id)
   : null
 
-// ── 时间线：直接用 composable 的 items ──
-const timelineItems = computed(() => {
-  if (!stream) return []
-  return stream.items?.value || []
-})
+// ── 时间线：直接从 chatStore 读取 ──
+const timelineItems = computed(() => chatStore.items)
 
-const isLoading = computed(() => stream ? stream.isLoading.value : false)
-const hasContent = computed(() => timelineItems.value.length > 0 || todos.value.length > 0)
+const isLoading = computed(() => chatStore.isLoading)
+const hasContent = computed(() => chatStore.items.length > 0 || todos.value.length > 0)
 
-// ── 会话信息加载 ──
-onMounted(async () => {
-  if (hasValidThread.value) {
-    const sessionStore = useSessionStore()
-    try {
+	// ── 会话信息加载 ──
+	onMounted(async () => {
+	  if (hasValidThread.value) {
+	    const sessionStore = useSessionStore()
+	    chatStore.clearItems() // 切换会话时清空旧数据
+	    try {
       const m = await sessionStore.fetchSession(props.id)
       sessionTitle.value = m.title
       sessionStatus.value = m.status

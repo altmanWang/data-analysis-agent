@@ -1,113 +1,149 @@
 /**
- * useAnalysisStream — 自定义 SSE fetch，直接调后端 Protocol v2 API。
- * SDK 的 submit 内部不触发 HTTP 请求，回退到已验证的自定义方案。
+ * useAnalysisStream — 基于 fetchEventSource 的 SSE 流式通信。
+ *
+ * 网络层负责 HTTP 请求与事件解析，消息状态委托给 chatStore（Pinia）。
+ * 替代了旧版手动 ReadableStream + TextDecoder + buffer 拼接的方案。
  */
-import { ref, shallowRef, isRef } from 'vue'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { useChatStore } from '../stores/chatStore'
 
 export function useAnalysisStream(threadId) {
-  const tid = isRef(threadId) ? threadId : ref(threadId)
-
-  const items = shallowRef([])
-  const messages = shallowRef([])
-  const toolCalls = shallowRef([])
-  const isLoading = ref(false)
-  const error = ref(null)
+  const store = useChatStore()
+  store.currentThreadId = threadId
   let abortController = null
 
-  function _push(item) {
-    items.value = [...items.value, item]
-    if (item.kind === 'tool_call') {
-      toolCalls.value = [...toolCalls.value, { id: item.id, name: item.name, args: item.args, status: item.status, result: item.result }]
-    } else {
-      messages.value = [...messages.value, { id: item.id, role: item.role, content: item.content, done: item.done }]
-    }
-  }
-
-  function _updateTool(id, updates) {
-    items.value = items.value.map(i => i.id === id ? { ...i, ...updates } : i)
-    toolCalls.value = toolCalls.value.map(tc => tc.id === id ? { ...tc, ...updates } : tc)
-  }
-
   async function submit({ content }) {
-    if (!content || isLoading.value) return
-    const currentTid = tid.value
-    if (!currentTid) return
-    isLoading.value = true
-    error.value = null
+    if (!content || store.isLoading) return
+    if (!threadId) return
+
+    store.setLoading(true)
+    store.setError(null)
     abortController = new AbortController()
 
     try {
-      const cmdRes = await fetch(`/api/threads/${currentTid}/commands`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: Date.now(), method: 'run.start', params: { input: { messages: [{ role: 'user', content }] } } }),
+      // ── Phase 1: 启动 agent run ──
+      const cmdRes = await fetch(`/api/threads/${threadId}/commands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: Date.now(),
+          method: 'run.start',
+          params: { input: { messages: [{ role: 'user', content }] } },
+        }),
         signal: abortController.signal,
       })
       if (!cmdRes.ok) throw new Error(`命令失败: ${cmdRes.status}`)
 
-      _push({ id: Date.now().toString(), role: 'user', kind: 'message', content, done: true })
-
-      const streamRes = await fetch(`/api/threads/${currentTid}/stream/events`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channels: ['messages', 'tools', 'lifecycle'], content }),
-        signal: abortController.signal,
+      // 立即显示用户消息
+      store.appendItem({
+        id: Date.now().toString(),
+        role: 'user',
+        kind: 'message',
+        content,
+        done: true,
       })
-      if (!streamRes.ok) throw new Error(`流失败: ${streamRes.status}`)
 
-      const reader = streamRes.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = '', currentText = '', currentMsg = null
+      // 用于 SSE 流中累积 assistant 消息内容
+      let currentMsgId = null
+      let currentText = ''
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n'); buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
+      // ── Phase 2: fetchEventSource 消费 SSE ──
+      await fetchEventSource(`/api/threads/${threadId}/stream/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channels: ['messages', 'tools', 'lifecycle'],
+          content,
+        }),
+        signal: abortController.signal,
+        openWhenHidden: true, // 后台标签页不断流
+
+        onmessage(event) {
+          if (!event.data) return
           try {
-            const event = JSON.parse(line.slice(6))
-            const data = event.params?.data || {}
-            if (event.method === 'messages/update') {
+            const parsed = JSON.parse(event.data)
+            // Protocol v2: params.data 是实际事件体
+            const data = parsed.params?.data || {}
+
+            // ── 消息事件 ──
+            if (parsed.method === 'messages/update') {
               if (data.event === 'message-start') {
-                currentText = ''; currentMsg = { id: Date.now().toString() + '-ai', role: 'assistant', kind: 'message', content: '', done: false }; _push(currentMsg)
+                currentMsgId = `${Date.now()}-ai`
+                currentText = ''
+                store.appendItem({
+                  id: currentMsgId,
+                  role: 'assistant',
+                  kind: 'message',
+                  content: '',
+                  done: false,
+                })
               } else if (data.event === 'content-block-delta') {
-                currentText += data.delta?.text || ''; currentMsg.content = currentText; items.value = [...items.value]
+                currentText += data.delta?.text || ''
+                if (currentMsgId) {
+                  store.updateItem(currentMsgId, { content: currentText })
+                }
               } else if (data.event === 'message-finish') {
-                if (currentMsg) currentMsg.done = true; items.value = [...items.value]
-              }
-            } else if (event.method === 'tools/update') {
-              if (data.event === 'tool-started') {
-                _push({ id: data.tool_call_id, role: 'tool', kind: 'tool_call', name: data.tool_name, args: data.input, status: 'running', result: null, _expanded: true })
-              } else if (data.event === 'tool-finished') {
-                _updateTool(data.tool_call_id, { status: 'done', result: data.output, _expanded: false })
+                if (currentMsgId) {
+                  store.updateItem(currentMsgId, { done: true })
+                }
+                currentMsgId = null
+                currentText = ''
               }
             }
-          } catch {}
-        }
-      }
+
+            // ── 工具事件 ──
+            else if (parsed.method === 'tools/update') {
+              if (data.event === 'tool-started') {
+                store.appendItem({
+                  id: data.tool_call_id,
+                  kind: 'tool_call',
+                  role: 'tool',
+                  name: data.tool_name,
+                  args: data.input,
+                  status: 'running',
+                  result: null,
+                  _expanded: true,
+                })
+              } else if (data.event === 'tool-finished') {
+                store.updateItem(data.tool_call_id, {
+                  status: 'done',
+                  result: data.output,
+                  _expanded: false,
+                })
+              }
+            }
+          } catch {
+            // 非关键事件静默跳过（heartbeat、格式异常等）
+          }
+        },
+
+        onerror(err) {
+          store.setError(err instanceof Error ? err : new Error(String(err)))
+          throw err // 不重试，直接终止流
+        },
+      })
     } catch (err) {
-      if (err.name !== 'AbortError') { error.value = err; console.error('Stream error:', err) }
+      if (err.name !== 'AbortError') {
+        store.setError(err instanceof Error ? err : new Error(String(err)))
+        console.error('Stream error:', err)
+      }
     } finally {
-      isLoading.value = false; abortController = null
+      store.setLoading(false)
+      abortController = null
     }
   }
 
-  async function loadHistory() {
-    const currentTid = tid.value
-    if (!currentTid) return
-    try {
-      const res = await fetch(`/api/threads/${currentTid}/messages`)
-      if (!res.ok) return
-      const rows = await res.json()
-      if (!rows?.length) return
-      const h = []; const tc = []
-      for (const r of rows) {
-        if (r.role === 'tool') tc.push({ id: `${currentTid}-tool-${Math.random()}`, name: r.tool_name || '', args: r.tool_args || null, status: r.tool_status || 'done', result: r.tool_result || null })
-        else h.push({ id: `${currentTid}-${r.role}-${Math.random()}`, role: r.role === 'assistant' ? 'assistant' : 'user', kind: 'message', content: r.content || '', done: true })
-      }
-      if (h.length > 0) { items.value = [...h, ...tc.map(t => ({ ...t, role: 'tool', kind: 'tool_call', _expanded: false }))]; messages.value = h; toolCalls.value = tc }
-    } catch (e) { console.error('加载历史失败:', e) }
+  function stop() {
+    abortController?.abort()
   }
 
-  return { messages, toolCalls, items, isLoading, error, submit, stop: () => abortController?.abort(), disconnect: () => abortController?.abort(), loadHistory, threadId: tid, respond: () => {}, interrupt: ref(null), interrupts: ref([]), subagents: ref([]), values: ref(null) }
+  function disconnect() {
+    abortController?.abort()
+  }
+
+  async function loadHistory() {
+    await store.loadHistory(threadId)
+  }
+
+  return { submit, stop, disconnect, loadHistory }
 }

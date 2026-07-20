@@ -17,10 +17,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncIterator
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request as FastAPIRequest
+from fastapi import APIRouter, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 
 from agent_pool import agent_pool
@@ -51,13 +52,14 @@ _RETRYABLE_ERRORS = (
 )
 _MAX_RETRIES = 2
 _KEEPALIVE_INTERVAL = 15  # 秒
+_db_executor = ThreadPoolExecutor(max_workers=4)  # 异步写库线程池
 
 
 # ── 辅助函数 ────────────────────────────────────────────────
 
 
-def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> None:
-    """同步写入 message_history 表（供前端 loadHistory 使用）"""
+def _save_message_sync(thread_id: str, role: str, content: str = "", **kwargs) -> None:
+    """同步写入 message_history 表（在独立线程中执行，不阻塞 SSE 主循环）"""
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -80,6 +82,12 @@ def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> Non
         conn.close()
     except Exception:
         pass  # 不阻塞流式传输
+
+
+async def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> None:
+    """异步保存消息 — 通过线程池执行，不阻塞 SSE 主循环"""
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(_db_executor, _save_message_sync, thread_id, role, content, **kwargs)
 
 
 def format_sse(event: ProtocolEvent) -> str:
@@ -193,24 +201,38 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
     since: int | None = subscription.since
     user_content: str | None = body.get("content")
     if user_content:
-        _save_message(thread_id, "user", user_content)
-
-    # ── 验证会话 ──
-    session = session_manager.get(thread_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="会话不存在")
-    session_manager.update_last_active(thread_id)
-
-    # ── 获取 agent ──
-    try:
-        agent = agent_pool.get_agent(thread_id)
-    except Exception as e:
-        logger.exception("Agent 初始化失败 thread_id=%s", thread_id)
-        raise HTTPException(status_code=500, detail=f"Agent 初始化失败: {e}") from e
+        asyncio.create_task(_save_message(thread_id, "user", user_content))
 
     # ── SSE 生成器 ──
     async def generate() -> AsyncIterator[str]:
         """异步生成器: yield SSE 帧"""
+        # 告知客户端 SSE 重连间隔（毫秒），fetchEventSource 会据此恢复连接
+        yield "retry: 3000\n\n"
+
+        # ── 验证会话（走 SSE 帧而非 HTTP 异常，让前端 onerror 统一处理）──
+        session = session_manager.get(thread_id)
+        if not session:
+            err_evt = ProtocolEvent(
+                seq=None,
+                method="error",
+                params={"data": {"code": "SESSION_NOT_FOUND", "message": "会话不存在"}},
+            )
+            yield format_sse(err_evt)
+            return
+        session_manager.update_last_active(thread_id)
+
+        try:
+            agent = agent_pool.get_agent(thread_id)
+        except Exception as e:
+            logger.exception("Agent 初始化失败 thread_id=%s", thread_id)
+            err_evt = ProtocolEvent(
+                seq=None,
+                method="error",
+                params={"data": {"code": "AGENT_INIT_FAILED", "message": str(e)}},
+            )
+            yield format_sse(err_evt)
+            return
+
         stream_task: asyncio.Task[None] | None = None
         event_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue(maxsize=256)
         # 追踪每个 tool run_id 对应的 tool_name（on_tool_end 可能不含 name）
@@ -415,7 +437,7 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                         },
                     )
                     yield format_sse(evt)
-                    _save_message(thread_id, "assistant", current_text)
+                    asyncio.create_task(_save_message(thread_id, "assistant", current_text))
                     current_text = ""
 
                 # ── on_tool_start → tool-started ──
@@ -443,9 +465,9 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                         },
                     )
                     yield format_sse(evt)
-                    _save_message(thread_id, "tool", tool_name=tool_name,
+                    asyncio.create_task(_save_message(thread_id, "tool", tool_name=tool_name,
                         tool_args=json.dumps(raw_input, ensure_ascii=False, default=str)[:5000] if raw_input else None,
-                        tool_status="running")
+                        tool_status="running"))
 
                 # ── on_tool_end → tool-finished ──
                 elif evt_type == "on_tool_end":
@@ -472,9 +494,9 @@ async def stream_endpoint(thread_id: str, fastapi_request: FastAPIRequest):
                         },
                     )
                     yield format_sse(evt)
-                    _save_message(thread_id, "tool", tool_name=tool_name,
+                    asyncio.create_task(_save_message(thread_id, "tool", tool_name=tool_name,
                         tool_result=json.dumps(raw_output, ensure_ascii=False, default=str)[:5000] if raw_output else None,
-                        tool_status="done")
+                        tool_status="done"))
 
             # 正常完成 — 清除 task 引用
             stream_task = None
