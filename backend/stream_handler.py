@@ -39,11 +39,12 @@ def _save_message_sync(thread_id: str, role: str, content: str = "", **kwargs) -
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO message_history (session_id, role, content, tool_name, "
+            "INSERT INTO message_history (session_id, role, content, thinking_content, tool_name, "
             "tool_args, tool_result, tool_status) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 thread_id, role, content[:10000] if content else "",
+                kwargs.get("thinking_content", "")[:50000],
                 kwargs.get("tool_name"), kwargs.get("tool_args"),
                 kwargs.get("tool_result"), kwargs.get("tool_status"),
             ),
@@ -96,7 +97,8 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                 await asyncio.sleep(_KEEPALIVE)
 
         current_text = ""
-        tool_name_map: dict[str, str] = {}
+        current_thinking = ""
+        pending_tools: dict[str, dict] = {}  # run_id → {name, input}
 
         try:
             async for event in agent.astream_events(
@@ -110,60 +112,72 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                 evt_type: str = event.get("event", "")
                 evt_data: dict[str, Any] = event.get("data", {})
 
-                # ── LLM token ──
+                # ── LLM 输出文本 ──
                 if evt_type == "on_chat_model_stream":
                     chunk = evt_data.get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         text: str = chunk.content
                         current_text += text
                         yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
+                    # R1 等推理模型的 thinking（仅 reasoning_content 非空时推送）
+                    reasoning = getattr(chunk, "response_metadata", {}).get("reasoning_content", "")
+                    if reasoning:
+                        current_thinking += reasoning
+                        yield f"data: {json.dumps({'type': 'thinking', 'content': reasoning})}\n\n"
 
-                # ── 工具开始 ──
+                # ── 工具开始（仅缓存，不推送）──
                 elif evt_type == "on_tool_start":
-                    name: str = event.get("name", "")
                     run_id: str = event.get("run_id", "")
-                    raw_input: dict = evt_data.get("input", {})
-                    tool_name_map[run_id] = name
-                    # 安全序列化
-                    safe_input = {}
-                    for k, v in raw_input.items():
-                        if isinstance(v, (str, int, float, bool, list, dict, type(None))):
-                            safe_input[k] = v
-                        else:
-                            safe_input[k] = str(v)[:500]
-                    yield f"data: {json.dumps({'type': 'tool_start', 'name': name, 'id': run_id, 'input': safe_input})}\n\n"
-                    asyncio.create_task(_save_message(
-                        thread_id, "tool", tool_name=name,
-                        tool_args=json.dumps(raw_input, ensure_ascii=False, default=str)[:5000] if raw_input else None,
-                        tool_status="running",
-                    ))
+                    name: str = event.get("name", "")
+                    pending_tools[run_id] = {
+                        "name": name,
+                        "input": evt_data.get("input", {}),
+                    }
 
-                # ── 工具结束 ──
+                # ── 工具结束（合并推送）──
                 elif evt_type == "on_tool_end":
                     run_id = event.get("run_id", "")
-                    name = tool_name_map.pop(run_id, event.get("name", ""))
+                    tool = pending_tools.pop(run_id, {})
+                    name = tool.get("name", event.get("name", ""))
+                    raw_input = tool.get("input", {})
                     raw_output: Any = evt_data.get("output", {})
+
+                    # 提取输出文本
                     if hasattr(raw_output, "content"):
-                        out_str = str(raw_output.content)[:2000]
+                        out_str = str(raw_output.content)
                     elif isinstance(raw_output, str):
-                        out_str = raw_output[:2000]
+                        out_str = raw_output
+                    elif hasattr(raw_output, "update") and name != "write_todos":
+                        # Command 对象（如 task 子代理）：提取 messages 文本
+                        msgs = raw_output.update.get("messages", []) if isinstance(raw_output.update, dict) else []
+                        parts = []
+                        for m in msgs:
+                            if hasattr(m, "content"):
+                                parts.append(str(m.content))
+                            elif isinstance(m, str):
+                                parts.append(m)
+                        out_str = "\n".join(parts)
                     else:
-                        out_str = str(raw_output)[:2000]
-                    yield f"data: {json.dumps({'type': 'tool_end', 'name': name, 'id': run_id, 'output': out_str})}\n\n"
+                        out_str = str(raw_output)
+
+                    yield f"data: {json.dumps({'type': 'tool', 'name': name, 'id': run_id, 'input': str(raw_input)[:200], 'result': out_str})}\n\n"
                     asyncio.create_task(_save_message(
                         thread_id, "tool", tool_name=name,
-                        tool_result=json.dumps(raw_output, ensure_ascii=False, default=str)[:5000] if raw_output else None,
+                        tool_args=json.dumps(raw_input, ensure_ascii=False, default=str) if raw_input else None,
+                        tool_result=json.dumps(raw_output, ensure_ascii=False, default=str) if raw_output else None,
                         tool_status="done",
                     ))
 
-            # 保存 assistant 消息
+            # 保存 assistant 消息（含思考过程）
             if current_text:
-                asyncio.create_task(_save_message(thread_id, "assistant", current_text))
+                asyncio.create_task(_save_message(
+                    thread_id, "assistant", current_text,
+                    thinking_content=current_thinking,
+                ))
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except asyncio.CancelledError:
-            # 客户端断开 — 正常
             raise
         except Exception:
             logger.exception("SSE 异常 thread_id=%s", thread_id)

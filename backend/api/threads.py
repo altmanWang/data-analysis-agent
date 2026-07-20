@@ -41,13 +41,15 @@ async def get_thread_messages(thread_id: str):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT role, content, tool_name, tool_args, tool_result, tool_status "
+                "SELECT role, content, thinking_content, tool_name, tool_args, tool_result, tool_status "
                 "FROM message_history WHERE session_id = %s ORDER BY id ASC",
                 (thread_id,),
             )
             rows = cur.fetchall()
         return [
-            {k: v for k, v in zip(["role", "content", "tool_name", "tool_args", "tool_result", "tool_status"], row)}
+            {k: v for k, v in zip(
+                ["role", "content", "thinking_content", "tool_name", "tool_args", "tool_result", "tool_status"], row
+            )}
             for row in rows
         ]
     finally:

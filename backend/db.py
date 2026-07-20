@@ -71,19 +71,20 @@ def init_db():
             # 兼容旧表：删除废弃的 extra 列 + 重命名 thread_id → session_id
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS message_history (
-                    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    session_id  VARCHAR(36) NOT NULL COMMENT '会话 ID',
-                    role        VARCHAR(16) NOT NULL COMMENT 'user / assistant / tool',
-                    content     LONGTEXT COMMENT '消息内容',
-                    tool_name   VARCHAR(128) COMMENT '工具名 (仅 tool 角色)',
-                    tool_args   JSON COMMENT '工具参数 (仅 tool 角色)',
-                    tool_result JSON COMMENT '工具结果 (仅 tool 角色)',
-                    tool_status VARCHAR(16) COMMENT 'running / done (仅 tool 角色)',
-                    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    session_id      VARCHAR(36) NOT NULL COMMENT '会话 ID',
+                    role            VARCHAR(16) NOT NULL COMMENT 'user / assistant / tool',
+                    content         LONGTEXT COMMENT '消息内容',
+                    thinking_content LONGTEXT COMMENT '推理思考过程 (仅 assistant)',
+                    tool_name       VARCHAR(128) COMMENT '工具名 (仅 tool 角色)',
+                    tool_args       JSON COMMENT '工具参数 (仅 tool 角色)',
+                    tool_result     JSON COMMENT '工具结果 (仅 tool 角色)',
+                    tool_status     VARCHAR(16) COMMENT 'running / done (仅 tool 角色)',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_session (session_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
-            # 迁移已有表：删除 extra 列，重命名 thread_id → session_id
+            # 迁移已有表：删除 extra 列，重命名 thread_id→session_id，新增 thinking_content
             try:
                 cur.execute("ALTER TABLE message_history DROP COLUMN IF EXISTS extra")
             except Exception:
@@ -92,6 +93,13 @@ def init_db():
                 cur.execute(
                     "ALTER TABLE message_history "
                     "CHANGE COLUMN thread_id session_id VARCHAR(36) NOT NULL COMMENT '会话 ID'"
+                )
+            except Exception:
+                pass
+            try:
+                cur.execute(
+                    "ALTER TABLE message_history "
+                    "ADD COLUMN thinking_content LONGTEXT COMMENT '推理思考过程'"
                 )
             except Exception:
                 pass

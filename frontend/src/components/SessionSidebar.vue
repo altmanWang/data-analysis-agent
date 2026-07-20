@@ -9,7 +9,6 @@
         <div class="item-content">
           <div class="item-title">{{ s.title }}</div>
           <div class="item-meta">
-            <span :class="'status ' + s.status">{{ statusMap[s.status] || s.status }}</span>
             <span>{{ fmt(s.last_active) }}</span>
           </div>
         </div>

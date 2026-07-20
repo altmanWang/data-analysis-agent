@@ -13,7 +13,11 @@ export const useSessionStore = defineStore('session', {
       this.sessions = await res.json()
     },
     async createSession(userId = '') {
-      const res = await fetch(`/api/sessions?user_id=${userId}`, { method: 'POST' })
+      const res = await fetch(`/api/sessions?user_id=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '新会话' }),
+      })
       const session = await res.json()
       this.sessions.unshift(session)
       return session

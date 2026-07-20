@@ -2,16 +2,8 @@
   <div class="chat-panel" :class="{ 'has-messages': hasContent }">
     <div v-if="sessionTitle && sessionTitle !== '新会话'" class="chat-header">{{ sessionTitle }}</div>
 
-    <div v-if="todos.length" class="todo-panel">
-      <div class="todo-title">分析计划</div>
-      <div v-for="t in todos" :key="t.content" class="todo-item" :class="t.status">
-        <span class="todo-dot">{{ t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '●' : '○' }}</span>
-        <span>{{ t.content }}</span>
-      </div>
-    </div>
-
     <div class="chat-messages" ref="msgContainer">
-      <div v-if="!props.id && timelineItems.length === 0 && todos.length === 0" class="welcome-hint">
+      <div v-if="!props.id && timelineItems.length === 0" class="welcome-hint">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="welcome-icon">
           <path d="M21 21H3v-4a2 2 0 012-2h14a2 2 0 012 2v4z"/>
           <path d="M7 15V9a5 5 0 0110 0v6"/>
@@ -21,35 +13,68 @@
         <p>上传 CSV / Excel 文件，用自然语言进行数据分析</p>
       </div>
 
-      <div v-for="(item, i) in timelineItems" :key="item.id || i" class="message-row" :class="item.role">
+      <div v-for="(item, i) in timelineItems" :key="item.id || i" :class="msgRowClass(item)">
+        <!-- 错误 -->
+        <div v-if="item.kind === 'error'" class="error-bar">❌ {{ item.content }}</div>
+
+        <!-- 思考过程 -->
+        <div v-else-if="item.kind === 'thinking'" class="thinking-block" @click="toggleExpand(item)">
+          <div class="thinking-header">
+            <span class="thinking-icon">💭</span>
+            <span>思考中...</span>
+            <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div v-if="item._expanded" class="thinking-body">{{ item.content }}</div>
+        </div>
+
         <!-- 工具调用卡片 -->
-        <div v-if="item.kind === 'tool_call'" class="tool-card" :class="tcClass(item.status)" @click="toggleExpand(item)">
+        <div v-else-if="item.kind === 'tool_call'" class="tool-card" @click="toggleExpand(item)">
           <div class="tool-card-header">
-            <span class="tool-card-dot"></span>
-            <span class="tool-card-name">{{ item.name }}</span>
-            <span class="tool-card-status">{{ tcLabel(item.status) }}</span>
+            <span class="tool-icon">{{ toolIcon(item.name) }}</span>
+            <span class="tool-card-name">{{ formatToolName(item.name) }}</span>
             <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="item._expanded" class="tool-card-body">
-            <div v-if="item.args" class="card-section">
-              <div class="card-label">输入</div>
-              <pre class="card-pre">{{ fmtArgs(item.args) }}</pre>
+            <div v-if="item.input" class="card-section">
+              <div class="card-label">参数</div>
+              <pre class="card-pre">{{ item.input }}</pre>
             </div>
-            <div v-if="item.result != null" class="card-section">
-              <div class="card-label">输出</div>
+            <!-- write_todos 特殊渲染：列表形式 -->
+            <div v-if="isTodos(item)" class="todo-mini-list">
+              <div v-for="(t, ti) in parseTodos(item)" :key="ti" class="todo-mini-item" :class="t.status">
+                <span class="todo-mini-dot">{{ t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '●' : '○' }}</span>
+                <span>{{ t.content }}</span>
+              </div>
+            </div>
+            <!-- task 工具：result 已是纯净 Markdown，直接渲染 -->
+            <div v-else-if="item.name === 'task' && item.result" class="text-content" v-html="renderMd(item.result)"></div>
+            <!-- 通用：原始 JSON -->
+            <div v-else-if="item.result != null" class="card-section">
               <pre class="card-pre">{{ fmtResult(item.result) }}</pre>
             </div>
-            <div v-if="!item.args && item.result == null" class="card-empty">等待结果...</div>
+            <div v-else class="card-empty">等待结果...</div>
           </div>
         </div>
 
+        <!-- 完成标记 -->
+        <div v-else-if="item.kind === 'done'" class="done-marker">✅ 分析完成</div>
+
+        <!-- 普通消息 -->
         <template v-else>
           <div v-if="item.role !== 'user'" class="msg-avatar">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
           </div>
           <div class="msg-body">
+            <!-- 历史思考过程 -->
+            <div v-if="item.thinking" class="thinking-block" @click="toggleExpand(item)">
+              <div class="thinking-header">
+                <span class="thinking-icon">💭</span>
+                <span>思考过程</span>
+                <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div v-if="item._expanded" class="thinking-body">{{ item.thinking }}</div>
+            </div>
             <div class="text-content" v-html="renderMd(item.content)"></div>
-            <div v-if="item.source === 'subagent'" class="sub-tag">子代理</div>
           </div>
         </template>
       </div>
@@ -108,14 +133,13 @@ const bottom = ref(null)
 const inputRef = ref(null)
 const sessionTitle = ref('')
 const sessionStatus = ref('active')
-const todos = ref([])
 const timelineItems = shallowRef([])
 const isLoading = ref(false)
 let abortController = null
 
 // ── 是否为有效 session（已创建的线程） ──
 const hasValidThread = computed(() => props.id && props.id !== 'new')
-const hasContent = computed(() => timelineItems.value.length > 0 || todos.value.length > 0)
+const hasContent = computed(() => timelineItems.value.length > 0)
 
 // ── 会话信息加载 ──
 onMounted(async () => {
@@ -135,7 +159,6 @@ onMounted(async () => {
       nextTick(() => { text.value = p.text; selectedMentions.value = p.mentions; send() })
     }
   } else {
-    // 首页无有效线程，清空上一个会话残留的目录树
     sessionStore.currentId = null
     useFileStore().reset()
   }
@@ -161,6 +184,7 @@ async function loadHistory() {
           id: `${props.id}-${r.role}-${Math.random()}`, kind: 'message',
           role: r.role === 'assistant' ? 'assistant' : 'user',
           content: r.content || '', done: true,
+          thinking: r.thinking_content || '',
         })
       }
     }
@@ -193,6 +217,15 @@ function renderMd(text_) {
   return html
 }
 
+// ── 消息行 class ──
+function msgRowClass(item) {
+  if (item.kind === 'error') return 'message-row error'
+  if (item.kind === 'thinking') return 'message-row assistant'
+  if (item.kind === 'done') return 'message-row assistant'
+  if (item.kind === 'tool_call') return ''
+  return ['message-row', item.role]
+}
+
 // ── 发送消息 ──
 async function send() {
   if (!text.value.trim() || isLoading.value) return
@@ -216,7 +249,6 @@ async function send() {
   isLoading.value = true
   abortController = new AbortController()
 
-  // 追加用户消息
   timelineItems.value = [...timelineItems.value, {
     id: Date.now().toString(), kind: 'message', role: 'user', content, done: true,
   }]
@@ -224,6 +256,8 @@ async function send() {
   const tid = props.id
   let currentMsgId = null
   let currentText = ''
+  let currentThinkingId = null
+  let currentThinking = ''
 
   try {
     await fetchEventSource(`/api/threads/${tid}/stream`, {
@@ -237,7 +271,18 @@ async function send() {
         if (!event.data) return
         try { var data = JSON.parse(event.data) } catch { return }
 
-        if (data.type === 'text') {
+        if (data.type === 'thinking') {
+          if (!currentThinkingId) {
+            currentThinkingId = `${Date.now()}-think`
+            timelineItems.value = [...timelineItems.value, {
+              id: currentThinkingId, kind: 'thinking', role: 'assistant',
+              content: '', _expanded: false,
+            }]
+          }
+          currentThinking += data.content
+          timelineItems.value = timelineItems.value.map(i =>
+            i.id === currentThinkingId ? { ...i, content: currentThinking } : i)
+        } else if (data.type === 'text') {
           if (!currentMsgId) {
             currentMsgId = `${Date.now()}-ai`
             timelineItems.value = [...timelineItems.value, {
@@ -247,22 +292,31 @@ async function send() {
           currentText += data.content
           timelineItems.value = timelineItems.value.map(i =>
             i.id === currentMsgId ? { ...i, content: currentText } : i)
-        } else if (data.type === 'tool_start') {
+        } else if (data.type === 'tool') {
           timelineItems.value = [...timelineItems.value, {
-            id: data.id, kind: 'tool_call', role: 'tool',
-            name: data.name, args: data.input, status: 'running', result: null, _expanded: true,
+            id: data.id || `${Date.now()}-tool`, kind: 'tool_call', role: 'tool',
+            name: data.name, status: 'done', result: data.result, input: data.input || '', _expanded: false,
           }]
-        } else if (data.type === 'tool_end') {
-          timelineItems.value = timelineItems.value.map(i =>
-            i.id === data.id ? { ...i, status: 'done', result: data.output, _expanded: false } : i)
+          // task（子代理）结束后另起一条消息，保证 task 卡片在总结文本之前
+          if (data.name === 'task') {
+            currentMsgId = null
+            currentText = ''
+          }
         } else if (data.type === 'done') {
           if (currentMsgId) {
             timelineItems.value = timelineItems.value.map(i =>
               i.id === currentMsgId ? { ...i, done: true } : i)
           }
-          // Agent 可能在过程中写入了新文件（如 HTML 报告），刷新目录树
+          timelineItems.value = [...timelineItems.value, {
+            id: `${Date.now()}-done`, kind: 'done',
+          }]
           useFileStore().fetchTree(tid)
-          abortController.abort() // 主动关闭连接，让 finally 执行
+          abortController.abort()
+        } else if (data.type === 'error') {
+          timelineItems.value = [...timelineItems.value, {
+            id: `${Date.now()}-err`, kind: 'error', content: data.content || '服务器内部错误',
+          }]
+          abortController.abort()
         }
       },
 
@@ -271,7 +325,12 @@ async function send() {
       },
     })
   } catch (err) {
-    if (err.name !== 'AbortError') console.error('Stream error:', err)
+    if (err.name !== 'AbortError') {
+      console.error('Stream error:', err)
+      timelineItems.value = [...timelineItems.value, {
+        id: `${Date.now()}-err`, kind: 'error', content: '连接中断，请重试',
+      }]
+    }
   } finally {
     isLoading.value = false
     abortController = null
@@ -308,7 +367,9 @@ async function onUpload(e) {
   const file = e.target.files[0]
   if (!file) return
   const sessionStore = useSessionStore()
-  if (!props.id || props.id === 'new') {
+
+  // 无有效 session → 先创建再上传
+  if (!props.id || props.id === 'new' || props.id === 'undefined') {
     const s = await sessionStore.createSession()
     await useFileStore().upload(s.session_id, file)
     router.push(`/session/${s.session_id}`)
@@ -317,8 +378,79 @@ async function onUpload(e) {
   await useFileStore().upload(props.id, file)
 }
 
-// ── 工具调用卡片 ──
-function toggleExpand(item) { item._expanded = !item._expanded }
+// ── 工具卡片 ──
+function toggleExpand(item) {
+  item._expanded = !item._expanded
+  // shallowRef 不追踪深层变更，手动触发更新
+  timelineItems.value = [...timelineItems.value]
+}
+
+function isTodos(item) {
+  return item.name === 'write_todos' && item.result
+}
+
+function parseTodos(item) {
+  try {
+    const raw = item.result
+    const match = raw.match(/'todos':\s*(\[[\s\S]*?\])\s*[,}]/)
+    if (match) {
+      const parsed = JSON.parse(match[1].replace(/'/g, '"'))
+      if (Array.isArray(parsed)) return parsed
+    }
+    const direct = JSON.parse(raw)
+    if (direct.todos) return direct.todos
+  } catch {}
+  return []
+}
+
+function parseTaskMd(item) {
+  try {
+    const raw = item.result
+    let content = null
+    const m1 = raw.match(/ToolMessage\(content='([\s\S]*?)'(?:,\s*tool_call_id|\))/)
+    if (m1) content = m1[1]
+    else {
+      const m2 = raw.match(/content='([\s\S]+?)'\s*[\)\}]/)
+      if (m2) content = m2[1]
+    }
+    if (content) {
+      content = content.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"')
+      return content
+    }
+    console.warn('parseTaskMd: 未能解析', raw.slice(0, 200))
+  } catch {}
+  return null
+}
+
+function toolIcon(name) {
+  const map = {
+    'load_csv': '📂', 'load_excel': '📂', 'load-data': '📂',
+    'execute_python': '💻', 'run_python': '💻',
+    'write_file': '📄', 'write-file': '📄',
+    'read_file': '📋', 'read-file': '📋',
+    'ls': '📁', 'list_files': '📁',
+    'data-analyst': '🤖',
+  }
+  return map[name] || '🔧'
+}
+
+function formatToolName(name) {
+  const labels = {
+    'load_csv': '读取 CSV',
+    'load_excel': '读取 Excel',
+    'load-data': '读取数据',
+    'execute_python': '执行代码',
+    'run_python': '执行代码',
+    'write_file': '写入文件',
+    'write-file': '写入文件',
+    'read_file': '读取文件',
+    'read-file': '读取文件',
+    'ls': '列出文件',
+    'list_files': '列出文件',
+    'data-analyst': '数据分析子代理',
+  }
+  return labels[name] || name
+}
 
 function tcClass(status) {
   if (status === 'running' || status === 'pending') return 'running'
@@ -373,22 +505,76 @@ onBeforeUnmount(() => {
 .welcome-hint p { font-size: var(--font-size-md); color: var(--color-text-muted); max-width: 360px; line-height: 1.6; }
 .message-row { display: flex; gap: var(--spacing-md); padding: var(--spacing-md) var(--spacing-2xl); max-width: 800px; margin: 0 auto; }
 .message-row.user { flex-direction: row-reverse; }
+.message-row.assistant { }
+.message-row.error { justify-content: center; }
 .msg-avatar { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--color-primary); color: var(--color-text-inverse); display: flex; align-items: center; justify-content: center; margin-top: 2px; }
 .msg-body { min-width: 0; flex: 1; }
 .message-row.user .msg-body { display: flex; flex-direction: column; align-items: flex-end; }
 .message-row.user .text-content { background: var(--color-bg-muted); color: var(--color-text); border-radius: var(--radius-xl); padding: var(--spacing-sm) var(--spacing-lg); max-width: 75%; line-height: var(--line-height); }
 .message-row:not(.user) .text-content { color: var(--color-text); padding: 0; line-height: 1.8; }
 .text-content { font-size: var(--font-size-md); word-break: break-word; }
-.sub-tag { display: inline-block; font-size: var(--font-size-xs); background: var(--color-border-light); color: var(--color-text-muted); padding: 2px 8px; border-radius: var(--radius-sm); margin-top: var(--spacing-xs); }
+
+/* ── error bar ── */
+.error-bar {
+  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-md);
+  color: #DC2626;
+  font-size: var(--font-size-sm);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* ── done marker ── */
+.done-marker {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-sm) 0;
+}
+
+/* ── thinking block ── */
+.thinking-block {
+  margin-bottom: var(--spacing-sm);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: #F8FAFC;
+  overflow: hidden;
+  cursor: pointer;
+}
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.thinking-icon { font-size: var(--font-size-base); }
+.thinking-header .tool-card-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+.thinking-header .tool-card-chevron.expanded { transform: rotate(180deg); }
+.thinking-body {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  border-top: 1px solid var(--color-border-light);
+  max-height: 300px;
+  overflow-y: auto;
+}
 
 /* ── tool card ── */
-.tool-card { margin: 4px auto; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); cursor: pointer; overflow: hidden; transition: border-color var(--transition-fast); max-width: 800px; width: calc(100% - var(--spacing-2xl) * 2); }
-.tool-card.running { border-color: var(--color-border-focus); background: #EFF6FF; }
-.tool-card.done { border-color: var(--color-success); }
+.tool-card { margin: 4px auto; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); cursor: pointer; overflow: hidden; max-width: 800px; width: calc(100% - var(--spacing-2xl) * 2); }
 .tool-card-header { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); font-size: var(--font-size-sm); }
-.tool-card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.running .tool-card-dot { background: var(--color-border-focus); animation: pulse 1.5s infinite; }
-.done .tool-card-dot { background: var(--color-success); }
+.tool-icon { font-size: var(--font-size-base); flex-shrink: 0; }
 .tool-card-name { font-weight: var(--font-weight-medium); color: var(--color-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-card-status { color: var(--color-text-muted); font-size: var(--font-size-xs); flex-shrink: 0; }
 .tool-card-chevron { flex-shrink: 0; color: var(--color-text-muted); transition: transform var(--transition-fast); }
@@ -398,7 +584,14 @@ onBeforeUnmount(() => {
 .card-label { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: var(--spacing-xs); text-transform: uppercase; letter-spacing: 0.5px; }
 .card-pre { font-size: var(--font-size-xs); background: var(--color-bg-muted); padding: var(--spacing-sm); border-radius: var(--radius-sm); overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); font-family: 'JetBrains Mono', monospace; }
 .card-empty { text-align: center; color: var(--color-text-muted); font-size: var(--font-size-sm); padding: var(--spacing-md); }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ── write_todos mini list ── */
+.todo-mini-list { padding: var(--spacing-sm) 0; }
+.todo-mini-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 3px 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.todo-mini-dot { min-width: 14px; text-align: center; font-size: var(--font-size-xs); }
+.todo-mini-item.completed { color: var(--color-text-muted); text-decoration: line-through; }
+.todo-mini-item.in_progress { color: var(--color-primary); font-weight: var(--font-weight-medium); }
+.todo-mini-item.in_progress .todo-mini-dot { color: var(--color-secondary); }
 
 /* ── markdown ── */
 .text-content :deep(p) { margin-bottom: var(--spacing-md); }
@@ -440,13 +633,4 @@ textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
 .mention-item:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .mention-item:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 .mention-empty { padding: var(--spacing-sm) var(--spacing-md); color: var(--color-text-muted); font-size: var(--font-size-base); }
-
-/* ── todo panel ── */
-.todo-panel { padding: var(--spacing-md) var(--spacing-2xl); border-bottom: 1px solid var(--color-border-light); background: var(--color-bg); flex-shrink: 0; max-width: 800px; margin: 0 auto; width: 100%; }
-.todo-title { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-bottom: var(--spacing-sm); font-weight: var(--font-weight-semibold); letter-spacing: 0.3px; }
-.todo-item { font-size: var(--font-size-base); padding: var(--spacing-xs) 0; display: flex; align-items: center; gap: var(--spacing-sm); color: var(--color-text-secondary); }
-.todo-dot { min-width: 16px; text-align: center; font-size: var(--font-size-xs); }
-.todo-item.completed { color: var(--color-text-muted); text-decoration: line-through; }
-.todo-item.in_progress { color: var(--color-primary); font-weight: var(--font-weight-medium); }
-.todo-item.in_progress .todo-dot { color: var(--color-secondary); }
 </style>
