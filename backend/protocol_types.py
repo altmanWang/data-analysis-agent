@@ -51,10 +51,10 @@ KnownChannel = Literal[
 ProtocolChannel = Annotated[
     str,
     StringConstraints(
-        pattern=r'^(values|updates|messages|tools|lifecycle|input|tasks|custom|custom:[a-zA-Z0-9_-]+)$',
+        pattern=r'^(values|updates|messages|tools|lifecycle|input|tasks|checkpoints|custom|custom:[a-zA-Z0-9_-]+)$',
     ),
 ]
-"""协议通道名称。可以是预定义通道 (values/updates/messages/tools/lifecycle/input/tasks/custom)
+"""协议通道名称。可以是预定义通道 (values/updates/messages/tools/lifecycle/input/tasks/checkpoints/custom)
 或自定义通道 (custom:<prefix>)"""
 
 ProtocolNamespace = list[str]

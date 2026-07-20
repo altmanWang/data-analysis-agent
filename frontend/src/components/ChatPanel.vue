@@ -88,17 +88,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
-import { useAnalysisStream } from '../composables/useAnalysisStream'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useSessionStore } from '../stores/sessionStore'
 import { useFileStore } from '../stores/fileStore'
-import { useChatStore } from '../stores/chatStore'
 
 const props = defineProps({ id: String })
 const router = useRouter()
-const chatStore = useChatStore()
 
 // ── 本地状态 ──
 const text = ref('')
@@ -111,49 +109,59 @@ const inputRef = ref(null)
 const sessionTitle = ref('')
 const sessionStatus = ref('active')
 const todos = ref([])
-let streamInterval = null
+const timelineItems = shallowRef([])
+const isLoading = ref(false)
+let abortController = null
 
 // ── 是否为有效 session（已创建的线程） ──
 const hasValidThread = computed(() => props.id && props.id !== 'new')
+const hasContent = computed(() => timelineItems.value.length > 0 || todos.value.length > 0)
 
-// ── Stream 组合式函数（仅在有有效 threadId 时初始化） ──
-const stream = hasValidThread.value
-  ? useAnalysisStream(props.id)
-  : null
-
-// ── 时间线：直接从 chatStore 读取 ──
-const timelineItems = computed(() => chatStore.items)
-
-const isLoading = computed(() => chatStore.isLoading)
-const hasContent = computed(() => chatStore.items.length > 0 || todos.value.length > 0)
-
-	// ── 会话信息加载 ──
-	onMounted(async () => {
-	  if (hasValidThread.value) {
-	    const sessionStore = useSessionStore()
-	    chatStore.clearItems() // 切换会话时清空旧数据
-	    try {
+// ── 会话信息加载 ──
+onMounted(async () => {
+  if (hasValidThread.value) {
+    const sessionStore = useSessionStore()
+    try {
       const m = await sessionStore.fetchSession(props.id)
       sessionTitle.value = m.title
       sessionStatus.value = m.status
       useFileStore().fetchTree(props.id)
-      // 加载历史消息（SDK 已自动水合，此处仅作补充元数据用途）
-      if (stream) await stream.loadHistory()
-    } catch {
-      router.push('/')
-    }
-    // 有待发送的 pending 消息
+      await loadHistory()
+    } catch { router.push('/') }
     if (sessionStore.pendingInput) {
       const p = sessionStore.pendingInput
       sessionStore.pendingInput = null
-      nextTick(() => {
-        text.value = p.text
-        selectedMentions.value = p.mentions
-        send()
-      })
+      nextTick(() => { text.value = p.text; selectedMentions.value = p.mentions; send() })
     }
   }
 })
+
+// ── 加载历史 ──
+async function loadHistory() {
+  try {
+    const res = await fetch(`/api/threads/${props.id}/messages`)
+    if (!res.ok) return
+    const rows = await res.json()
+    if (!rows?.length) return
+    const items = []
+    for (const r of rows) {
+      if (r.role === 'tool') {
+        items.push({
+          id: `${props.id}-tool-${Math.random()}`, kind: 'tool_call', role: 'tool',
+          name: r.tool_name || '', args: r.tool_args || null,
+          status: r.tool_status || 'done', result: r.tool_result || null, _expanded: false,
+        })
+      } else {
+        items.push({
+          id: `${props.id}-${r.role}-${Math.random()}`, kind: 'message',
+          role: r.role === 'assistant' ? 'assistant' : 'user',
+          content: r.content || '', done: true,
+        })
+      }
+    }
+    if (items.length > 0) timelineItems.value = items
+  } catch (e) { console.error('加载历史失败:', e) }
+}
 
 // ── 自动滚动 ──
 function autoScroll() {
@@ -162,32 +170,20 @@ function autoScroll() {
   if (el.scrollHeight - el.scrollTop - el.clientHeight > 150) return
   bottom.value?.scrollIntoView({ behavior: 'smooth' })
 }
-
 watch(() => timelineItems.value.length, () => { nextTick(() => autoScroll()) })
-
-watch(isLoading, (val) => {
-  if (val) {
-    if (streamInterval) clearInterval(streamInterval)
-    streamInterval = setInterval(() => {
-      if (!isLoading.value) { clearInterval(streamInterval); streamInterval = null; return }
-      autoScroll()
-    }, 200)
-  }
-})
 
 // ── Markdown 渲染 ──
 function renderMd(text_) {
-  let html = marked.parse(text_ || '')
+  const text = Array.isArray(text_)
+    ? text_.map(b => (typeof b === 'string' ? b : b.text || '')).join('')
+    : (text_ || '')
+  let html = marked.parse(text)
   const tid = props.id
   if (tid && tid !== 'new') {
-    html = html.replace(
-      /src="(?!https?:\/\/|\/api\/)([^"]*\.(?:png|jpg|jpeg|gif|svg))"/gi,
-      (_, path) => `src="/api/sessions/${tid}/files/${path.replace(/^\//, '')}"`
-    )
-    html = html.replace(
-      /href="(?!https?:\/\/|\/api\/)([^"]*\.(?:html))"/gi,
-      (_, path) => `href="/api/sessions/${tid}/files/${path.replace(/^\//, '')}"`
-    )
+    html = html.replace(/src="(?!https?:\/\/|\/api\/)([^"]*\.(?:png|jpg|jpeg|gif|svg))"/gi,
+      (_, path) => `src="/api/sessions/${tid}/files/${path.replace(/^\//, '')}"`)
+    html = html.replace(/href="(?!https?:\/\/|\/api\/)([^"]*\.(?:html))"/gi,
+      (_, path) => `href="/api/sessions/${tid}/files/${path.replace(/^\//, '')}"`)
   }
   return html
 }
@@ -199,32 +195,79 @@ async function send() {
   text.value = ''
   selectedMentions.value = []
 
-  // 无有效 session 时：先创建线程，再导航跳转（消息通过 pendingInput 延续）
   if (!hasValidThread.value) {
     const sessionStore = useSessionStore()
     sessionStore.pendingInput = { text: content, mentions: [] }
     try {
       const res = await fetch('/api/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: content.slice(0, 50) }),
       })
-      const data = await res.json()
-      router.push(`/session/${data.thread_id}`)
-    } catch (err) {
-      console.error('创建线程失败:', err)
-      text.value = content
-      sessionStore.pendingInput = null
-    }
+      router.push(`/session/${(await res.json()).thread_id}`)
+    } catch { text.value = content; sessionStore.pendingInput = null }
     return
   }
 
-  // 已有有效 session：通过 SDK 的 submit 发送
+  isLoading.value = true
+  abortController = new AbortController()
+
+  // 追加用户消息
+  timelineItems.value = [...timelineItems.value, {
+    id: Date.now().toString(), kind: 'message', role: 'user', content, done: true,
+  }]
+
+  const tid = props.id
+  let currentMsgId = null
+  let currentText = ''
+
   try {
-    await stream.submit({ content })
+    await fetchEventSource(`/api/threads/${tid}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+      signal: abortController.signal,
+      openWhenHidden: true,
+
+      onmessage(event) {
+        if (!event.data) return
+        try { var data = JSON.parse(event.data) } catch { return }
+
+        if (data.type === 'text') {
+          if (!currentMsgId) {
+            currentMsgId = `${Date.now()}-ai`
+            timelineItems.value = [...timelineItems.value, {
+              id: currentMsgId, kind: 'message', role: 'assistant', content: '', done: false,
+            }]
+          }
+          currentText += data.content
+          timelineItems.value = timelineItems.value.map(i =>
+            i.id === currentMsgId ? { ...i, content: currentText } : i)
+        } else if (data.type === 'tool_start') {
+          timelineItems.value = [...timelineItems.value, {
+            id: data.id, kind: 'tool_call', role: 'tool',
+            name: data.name, args: data.input, status: 'running', result: null, _expanded: true,
+          }]
+        } else if (data.type === 'tool_end') {
+          timelineItems.value = timelineItems.value.map(i =>
+            i.id === data.id ? { ...i, status: 'done', result: data.output, _expanded: false } : i)
+        } else if (data.type === 'done') {
+          if (currentMsgId) {
+            timelineItems.value = timelineItems.value.map(i =>
+              i.id === currentMsgId ? { ...i, done: true } : i)
+          }
+          abortController.abort() // 主动关闭连接，让 finally 执行
+        }
+      },
+
+      onerror(err) {
+        throw err
+      },
+    })
   } catch (err) {
-    console.error('发送失败:', err)
-    text.value = content
+    if (err.name !== 'AbortError') console.error('Stream error:', err)
+  } finally {
+    isLoading.value = false
+    abortController = null
   }
 }
 
@@ -254,7 +297,6 @@ function insertMention(f) {
   inputRef.value?.focus()
 }
 
-// ── 文件上传 ──
 async function onUpload(e) {
   const file = e.target.files[0]
   if (!file) return
@@ -297,8 +339,7 @@ function fmtResult(result) {
 
 // ── 清理 ──
 onBeforeUnmount(() => {
-  if (streamInterval) { clearInterval(streamInterval); streamInterval = null }
-  if (stream) stream.disconnect()
+  abortController?.abort()
 })
 </script>
 
