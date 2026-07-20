@@ -39,14 +39,13 @@ def _save_message_sync(thread_id: str, role: str, content: str = "", **kwargs) -
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO message_history (thread_id, role, content, tool_name, "
-            "tool_args, tool_result, tool_status, extra) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO message_history (session_id, role, content, tool_name, "
+            "tool_args, tool_result, tool_status) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (
                 thread_id, role, content[:10000] if content else "",
                 kwargs.get("tool_name"), kwargs.get("tool_args"),
                 kwargs.get("tool_result"), kwargs.get("tool_status"),
-                kwargs.get("extra"),
             ),
         )
         conn.commit()

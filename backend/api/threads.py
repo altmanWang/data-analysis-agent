@@ -4,6 +4,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 from session_manager import session_manager
+from worktree_manager import worktree_manager
 from mysql_saver import MySQLSaver
 from agent_pool import agent_pool
 from db import get_connection
@@ -70,7 +71,7 @@ async def get_thread_messages(thread_id: str):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT role, content, tool_name, tool_args, tool_result, tool_status "
-                "FROM message_history WHERE thread_id = %s ORDER BY id ASC",
+                "FROM message_history WHERE session_id = %s ORDER BY id ASC",
                 (thread_id,),
             )
             rows = cur.fetchall()
@@ -114,11 +115,12 @@ async def get_thread_history(thread_id: str, limit: int = 50):
 
 @router.delete("/{thread_id}")
 async def delete_thread(thread_id: str):
-    """删除线程（软删除 + 清理 agent 缓存）"""
+    """删除线程（软删除 + 清理 agent 缓存 + 清理沙盒）"""
     session = session_manager.get(thread_id)
     if not session:
         raise HTTPException(status_code=404, detail="线程不存在")
 
     agent_pool.remove(thread_id)
+    worktree_manager.delete_worktree(thread_id)
     session_manager.soft_delete(thread_id)
     return {"message": "已删除"}

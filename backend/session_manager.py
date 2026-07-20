@@ -117,8 +117,23 @@ class SessionManager:
         finally:
             conn.close()
 
+    def cleanup_session_data(self, session_id: str) -> None:
+        """级联清理会话关联数据：checkpoints / writes / blobs / message_history"""
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                # checkpoint 三张表是 LangGraph 标准，列名为 thread_id
+                for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
+                    cur.execute(f"DELETE FROM {table} WHERE thread_id=%s", (session_id,))
+                # message_history 是我们的表，列名为 session_id
+                cur.execute("DELETE FROM message_history WHERE session_id=%s", (session_id,))
+                conn.commit()
+        finally:
+            conn.close()
+
     def soft_delete(self, session_id: str) -> None:
         self.update_status(session_id, "deleted")
+        self.cleanup_session_data(session_id)
 
 
 # 全局单例

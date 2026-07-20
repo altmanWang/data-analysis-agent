@@ -64,21 +64,33 @@ def init_db():
 
         # 创建 message_history 表
         with conn.cursor() as cur:
+            # 兼容旧表：删除废弃的 extra 列 + 重命名 thread_id → session_id
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS message_history (
                     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    thread_id   VARCHAR(36) NOT NULL COMMENT '线程 ID',
+                    session_id  VARCHAR(36) NOT NULL COMMENT '会话 ID',
                     role        VARCHAR(16) NOT NULL COMMENT 'user / assistant / tool',
                     content     LONGTEXT COMMENT '消息内容',
                     tool_name   VARCHAR(128) COMMENT '工具名 (仅 tool 角色)',
                     tool_args   JSON COMMENT '工具参数 (仅 tool 角色)',
                     tool_result JSON COMMENT '工具结果 (仅 tool 角色)',
                     tool_status VARCHAR(16) COMMENT 'running / done (仅 tool 角色)',
-                    extra       JSON COMMENT '额外元数据',
                     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_thread (thread_id)
+                    INDEX idx_session (session_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
-        conn.commit()
+            # 迁移已有表：删除 extra 列，重命名 thread_id → session_id
+            try:
+                cur.execute("ALTER TABLE message_history DROP COLUMN IF EXISTS extra")
+            except Exception:
+                pass
+            try:
+                cur.execute(
+                    "ALTER TABLE message_history "
+                    "CHANGE COLUMN thread_id session_id VARCHAR(36) NOT NULL COMMENT '会话 ID'"
+                )
+            except Exception:
+                pass
+            conn.commit()
     finally:
         conn.close()
