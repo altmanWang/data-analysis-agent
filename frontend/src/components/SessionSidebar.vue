@@ -22,6 +22,7 @@
 
 <script>
 import { useSessionStore } from '../stores/sessionStore'
+import { useFileStore } from '../stores/fileStore'
 export default {
   data: () => ({ statusMap: { active: '活跃', archiving: '归档中', archived: '已归档' } }),
   setup() {
@@ -41,8 +42,9 @@ export default {
     async onDelete(id) {
       const wasCurrent = this.sessionStore.currentId === id
       await this.sessionStore.deleteSession(id)
-      // 如果删除的是当前会话，自动跳转到剩余会话或首页
+      // 删除的是当前会话 → 清理目录树，跳转到剩余会话或首页
       if (wasCurrent) {
+        useFileStore().reset()
         if (this.sessionStore.sessions.length > 0) {
           this.$router.push(`/session/${this.sessionStore.sessions[0].session_id}`)
         } else {

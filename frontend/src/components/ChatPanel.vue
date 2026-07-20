@@ -119,8 +119,9 @@ const hasContent = computed(() => timelineItems.value.length > 0 || todos.value.
 
 // ── 会话信息加载 ──
 onMounted(async () => {
+  const sessionStore = useSessionStore()
   if (hasValidThread.value) {
-    const sessionStore = useSessionStore()
+    sessionStore.currentId = props.id
     try {
       const m = await sessionStore.fetchSession(props.id)
       sessionTitle.value = m.title
@@ -133,6 +134,10 @@ onMounted(async () => {
       sessionStore.pendingInput = null
       nextTick(() => { text.value = p.text; selectedMentions.value = p.mentions; send() })
     }
+  } else {
+    // 首页无有效线程，清空上一个会话残留的目录树
+    sessionStore.currentId = null
+    useFileStore().reset()
   }
 })
 
@@ -255,6 +260,8 @@ async function send() {
             timelineItems.value = timelineItems.value.map(i =>
               i.id === currentMsgId ? { ...i, done: true } : i)
           }
+          // Agent 可能在过程中写入了新文件（如 HTML 报告），刷新目录树
+          useFileStore().fetchTree(tid)
           abortController.abort() // 主动关闭连接，让 finally 执行
         }
       },

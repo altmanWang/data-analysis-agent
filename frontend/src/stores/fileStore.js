@@ -41,5 +41,14 @@ export const useFileStore = defineStore('file', {
       await fetch(`/api/sessions/${sessionId}/files/${encodeURIComponent(path)}`, { method: 'DELETE' })
       await this.fetchTree(sessionId)
     },
+    reset() {
+      // 清理 Blob URL 防止内存泄漏
+      if (this.previewBlobUrl) URL.revokeObjectURL(this.previewBlobUrl)
+      this.tree = []
+      this.previewPath = null
+      this.previewContent = null
+      this.previewMime = null
+      this.previewBlobUrl = null
+    },
   },
 })
