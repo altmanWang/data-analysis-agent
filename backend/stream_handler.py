@@ -52,7 +52,7 @@ def _save_message_sync(thread_id: str, role: str, content: str = "", **kwargs) -
         cur.close()
         conn.close()
     except Exception:
-        pass
+        logger.exception("保存消息失败 thread_id=%s role=%s", thread_id, role)
 
 
 async def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> None:
@@ -161,11 +161,6 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                 asyncio.create_task(_save_message(thread_id, "assistant", current_text))
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-            # 完成后保持连接（心跳），供 SDK 后续复用
-            while True:
-                yield ": heartbeat\n\n"
-                await asyncio.sleep(_KEEPALIVE)
 
         except asyncio.CancelledError:
             # 客户端断开 — 正常

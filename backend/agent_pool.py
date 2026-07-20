@@ -1,7 +1,6 @@
 # backend/agent_pool.py
 """Agent 实例缓存池"""
 
-import time
 import os
 from agent_engine import build_agent, build_data_analyst_subagent
 from tools import create_data_tools
@@ -12,14 +11,12 @@ class AgentPool:
     """管理 agent 实例的懒加载缓存池"""
 
     def __init__(self):
-        self._agents: dict[str, tuple] = {}  # {session_id: (agent, last_used_ts)}
+        self._agents: dict[str, object] = {}
 
     def get_agent(self, session_id: str):
         """获取或创建 agent 实例"""
         if session_id in self._agents:
-            agent, _ = self._agents[session_id]
-            self._agents[session_id] = (agent, time.time())
-            return agent
+            return self._agents[session_id]
 
         worktree = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
 
@@ -28,22 +25,12 @@ class AgentPool:
         tools = [load_csv]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])
-        self._agents[session_id] = (agent, time.time())
+        self._agents[session_id] = agent
         return agent
 
     def remove(self, session_id: str):
         """从缓存中移除 agent"""
         self._agents.pop(session_id, None)
-
-    def cleanup_expired(self, max_idle_seconds: int = 3600):
-        """清理超时未使用的 agent 实例"""
-        now = time.time()
-        expired = [
-            sid for sid, (_, last) in self._agents.items()
-            if now - last > max_idle_seconds
-        ]
-        for sid in expired:
-            del self._agents[sid]
 
 
 # 全局单例

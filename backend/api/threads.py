@@ -1,12 +1,9 @@
 # backend/api/threads.py
-"""REST API: Protocol v2 Thread 管理"""
+"""REST API: Agent 状态查询（检查点、消息历史）"""
 
 import logging
 from fastapi import APIRouter, HTTPException
-from session_manager import session_manager
-from worktree_manager import worktree_manager
 from mysql_saver import MySQLSaver
-from agent_pool import agent_pool
 from db import get_connection
 
 logger = logging.getLogger(__name__)
@@ -17,32 +14,6 @@ router = APIRouter(prefix="/api/threads", tags=["threads"])
 def _get_saver() -> MySQLSaver:
     """创建 MySQLSaver 实例（每次调用新建，内部 _get_conn 按需取连接）"""
     return MySQLSaver()
-
-
-@router.post("")
-async def create_thread(title: str = "新会话"):
-    """创建线程（等价于创建 session）"""
-    session = session_manager.create(user_id="", title=title)
-    return {
-        "thread_id": session["session_id"],
-        "title": session["title"],
-        "created_at": session["created_at"],
-    }
-
-
-@router.get("")
-async def list_threads():
-    """获取线程列表"""
-    return session_manager.list_by_user(user_id="")
-
-
-@router.get("/{thread_id}")
-async def get_thread(thread_id: str):
-    """获取线程元数据"""
-    session = session_manager.get(thread_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="线程不存在")
-    return session
 
 
 @router.get("/{thread_id}/state")
@@ -111,16 +82,3 @@ async def get_thread_history(thread_id: str, limit: int = 50):
         }
         for cp in checkpoints
     ]
-
-
-@router.delete("/{thread_id}")
-async def delete_thread(thread_id: str):
-    """删除线程（软删除 + 清理 agent 缓存 + 清理沙盒）"""
-    session = session_manager.get(thread_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="线程不存在")
-
-    agent_pool.remove(thread_id)
-    worktree_manager.delete_worktree(thread_id)
-    session_manager.soft_delete(thread_id)
-    return {"message": "已删除"}

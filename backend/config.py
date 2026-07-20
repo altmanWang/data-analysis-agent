@@ -33,6 +33,3 @@ MODEL_CONFIG = {
 
 # Skills 目录
 SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
-
-# 归档配置
-ARCHIVE_IDLE_MINUTES = 30

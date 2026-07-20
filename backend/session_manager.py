@@ -20,7 +20,19 @@ class SessionManager:
                     (session_id, title, user_id, worktree_path),
                 )
                 conn.commit()
-            return self.get(session_id)
+                # 同一连接内查询刚插入的行，避免二次连接
+                cur.execute(
+                    "SELECT session_id, title, user_id, worktree_path, "
+                    "obs_archive_key, status, created_at, last_active "
+                    "FROM sessions WHERE session_id=%s",
+                    (session_id,),
+                )
+                row = cur.fetchone()
+                return {
+                    "session_id": row[0], "title": row[1], "user_id": row[2],
+                    "worktree_path": row[3], "obs_archive_key": row[4],
+                    "status": row[5], "created_at": str(row[6]), "last_active": str(row[7]),
+                }
         finally:
             conn.close()
 

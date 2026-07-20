@@ -204,11 +204,11 @@ async function send() {
     const sessionStore = useSessionStore()
     sessionStore.pendingInput = { text: content, mentions: [] }
     try {
-      const res = await fetch('/api/threads', {
+      const res = await fetch('/api/sessions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: content.slice(0, 50) }),
       })
-      router.push(`/session/${(await res.json()).thread_id}`)
+      router.push(`/session/${(await res.json()).session_id}`)
     } catch { text.value = content; sessionStore.pendingInput = null }
     return
   }

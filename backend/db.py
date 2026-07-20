@@ -7,9 +7,8 @@ from config import DB_CONFIG
 DB_NAME = DB_CONFIG["database"]
 
 
-def get_connection() -> pymysql.connections.Connection:
-    """获取 MySQL 连接，自动创建数据库"""
-    # 先连接不指定数据库，创建数据库
+def _ensure_database():
+    """确保数据库存在（仅在 init_db 时调用一次）"""
     conn = pymysql.connect(
         host=DB_CONFIG["host"],
         port=DB_CONFIG["port"],
@@ -17,15 +16,20 @@ def get_connection() -> pymysql.connections.Connection:
         password=DB_CONFIG["password"],
         charset=DB_CONFIG["charset"],
     )
-    with conn.cursor() as cur:
-        cur.execute(
-            f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` "
-            f"CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-        )
-    conn.close()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` "
+                f"CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
-    # 连接目标数据库
-    conn = pymysql.connect(
+
+def get_connection() -> pymysql.connections.Connection:
+    """获取 MySQL 连接"""
+    return pymysql.connect(
         host=DB_CONFIG["host"],
         port=DB_CONFIG["port"],
         user=DB_CONFIG["user"],
@@ -33,11 +37,11 @@ def get_connection() -> pymysql.connections.Connection:
         database=DB_NAME,
         charset=DB_CONFIG["charset"],
     )
-    return conn
 
 
 def init_db():
     """初始化所有表（sessions + checkpointer 三张表）"""
+    _ensure_database()
     conn = get_connection()
     try:
         with conn.cursor() as cur:
