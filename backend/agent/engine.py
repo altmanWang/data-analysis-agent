@@ -117,16 +117,12 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
     return {
         "name": "data-analyst",
         "description": "数据分析执行者，负责读取数据、生成 HTML 报告。",
-        "system_prompt": """你是数据分析执行者，负责读取 CSV/Excel 数据、执行分析代码并生成 HTML 报告。
-
-## 工作空间
-- 你的工作根目录是 `/`，所有数据文件和生成的报告（如 HTML、图表）都保存在这里。
-- `/skills/` 目录包含只读的技能参考文件，可读取但不可修改。
-- 除 `/` 和 `/skills/` 外，不存在其他目录，请勿尝试访问或列出系统路径。
-
-## 分析要求
-- 灵活加载 skill 美化 HTML 报告。
-- 图表保存到 `/reports/` 目录，HTML 报告保存到 `/` 根目录。""",
+        "system_prompt": """你是数据分析执行者，负责读取 CSV/Excel 数据并生成 HTML 报告。
+        ## 铁律
+        当前没有shell执行权限，所以不要写任何可执行的代码进行数据分析
+        ## 分析要求
+        - 灵活加载 skill 美化 HTML 报告。
+        - 图表保存到 `/reports/` 目录，HTML 报告保存到 `/` 根目录。""",
         "tools": [load_csv],
         "skills": skill_paths,
     }
