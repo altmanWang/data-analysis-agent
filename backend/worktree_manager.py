@@ -119,26 +119,5 @@ class WorktreeManager:
         shutil.rmtree(worktree)
         os.remove(zip_path)
 
-    def restore_session(self, session_id: str) -> str:
-        """从 OBS 恢复 worktree（当前打桩：检查本地 zip 或抛异常）"""
-        from session_manager import session_manager as sm
-        meta = sm.get(session_id)
-        if not meta or not meta.get("obs_archive_key"):
-            raise RuntimeError(f"会话 {session_id} 无归档记录")
-
-        zip_path = os.path.join(WORKTREE_ROOT, f"{session_id}.zip")
-
-        # TODO: OBS 下载（打桩）
-        logger.info(f"[OBS打桩] 模拟下载: {meta['obs_archive_key']}")
-
-        if not os.path.exists(zip_path):
-            raise RuntimeError(f"归档文件不存在: {session_id}（OBS 未实现）")
-
-        worktree = os.path.join(WORKTREE_ROOT, session_id)
-        shutil.unpack_archive(zip_path, worktree, "zip")
-        os.remove(zip_path)
-        return worktree
-
-
 # 全局单例
 worktree_manager = WorktreeManager()

@@ -31,16 +31,12 @@ class AgentPool:
         worktree = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
 
         # 用闭包创建绑定 worktree_root 的工具实例
-        load_csv, load_excel, execute_python = create_data_tools(worktree)
+        load_csv, *_ = create_data_tools(worktree)
         tools = [load_csv]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])
         self._agents[session_id] = (agent, now)
         return agent
-
-    def remove(self, session_id: str):
-        """从缓存中移除 agent"""
-        self._agents.pop(session_id, None)
 
     def cleanup_idle(self, max_idle_seconds: int = 3600):
         """清理超过 max_idle_seconds 秒未访问的 agent 实例

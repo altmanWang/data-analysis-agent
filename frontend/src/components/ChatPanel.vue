@@ -425,18 +425,6 @@ function parseTaskMd(item) {
   return null
 }
 
-function toolIcon(name) {
-  const map = {
-    'load_csv': '📂', 'load_excel': '📂', 'load-data': '📂',
-    'execute_python': '💻', 'run_python': '💻',
-    'write_file': '📄', 'write-file': '📄',
-    'read_file': '📋', 'read-file': '📋',
-    'ls': '📁', 'list_files': '📁',
-    'data-analyst': '🤖',
-  }
-  return map[name] || '🔧'
-}
-
 function formatToolName(name) {
   const labels = {
     'load_csv': '读取 CSV',
@@ -453,25 +441,6 @@ function formatToolName(name) {
     'data-analyst': '数据分析子代理',
   }
   return labels[name] || name
-}
-
-function tcClass(status) {
-  if (status === 'running' || status === 'pending') return 'running'
-  if (status === 'success') return 'done'
-  return ''
-}
-
-function tcLabel(status) {
-  if (status === 'pending') return '等待中...'
-  if (status === 'running') return '执行中...'
-  if (status === 'success') return '完成'
-  if (status === 'error') return '失败'
-  return status || ''
-}
-
-function fmtArgs(args) {
-  if (typeof args === 'string') return args
-  try { return JSON.stringify(args, null, 2) } catch { return String(args) }
 }
 
 function fmtResult(result) {

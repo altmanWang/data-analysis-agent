@@ -1,9 +1,8 @@
 # backend/api/sessions.py
 """REST API: 会话管理"""
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
 from session_manager import session_manager
 from worktree_manager import worktree_manager
 
@@ -18,8 +17,6 @@ class CreateSessionRequest(BaseModel):
 async def create_session(
     body: CreateSessionRequest,
     user_id: str = "",
-    authorization: Optional[str] = Header(None),
-    cookie: Optional[str] = Header(None),
 ):
     """创建新会话，返回 session_id + 元数据"""
     session = session_manager.create(user_id=user_id, title=body.title)

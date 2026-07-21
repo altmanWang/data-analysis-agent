@@ -23,7 +23,6 @@
 import { useSessionStore } from '../stores/sessionStore'
 import { useFileStore } from '../stores/fileStore'
 export default {
-  data: () => ({ statusMap: { active: '活跃', archiving: '归档中', archived: '已归档' } }),
   setup() {
     const s = useSessionStore()
     s.fetchSessions()
