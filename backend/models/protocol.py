@@ -1,4 +1,4 @@
-# backend/protocol_types.py
+# backend/models/protocol.py
 """Protocol v2 命令/响应类型 — 当前仅命令模式生效"""
 
 from __future__ import annotations

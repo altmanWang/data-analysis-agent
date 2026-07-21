@@ -1,4 +1,4 @@
-# backend/command_handler.py
+# backend/api/commands.py
 """Protocol v2 命令端点 — 接收并分发客户端命令
 
 实现 POST /api/threads/{thread_id}/commands 端点:
@@ -17,8 +17,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from protocol_types import ProtocolCommand, ProtocolError, ProtocolSuccess
-from session_manager import session_manager
+from models.protocol import ProtocolCommand, ProtocolError, ProtocolSuccess
+from services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 

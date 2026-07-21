@@ -1,10 +1,10 @@
-# backend/agent_pool.py
+# backend/agent/pool.py
 """Agent 实例缓存池 — 懒加载 + 定时过期清理"""
 
 import os
 import time
 import logging
-from agent_engine import build_agent, build_data_analyst_subagent
+from agent.engine import build_agent, build_data_analyst_subagent
 from tools import create_data_tools
 from config import PROJECT_ROOT
 
@@ -31,7 +31,7 @@ class AgentPool:
         worktree = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
 
         # 用闭包创建绑定 worktree_root 的工具实例
-        load_csv, *_ = create_data_tools(worktree)
+        load_csv, _ = create_data_tools(worktree)
         tools = [load_csv]
         subagent = build_data_analyst_subagent(worktree)
         agent = build_agent(session_id, tools, [subagent])

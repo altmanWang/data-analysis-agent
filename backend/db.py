@@ -63,7 +63,7 @@ def init_db():
         conn.commit()
 
         # 创建 checkpointer 表
-        from mysql_saver import MySQLSaver
+        from storage.mysql_saver import MySQLSaver
         MySQLSaver.from_conn_string(conn)
 
         # 创建 message_history 表
@@ -85,24 +85,25 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
             # 迁移已有表：删除 extra 列，重命名 thread_id→session_id，新增 thinking_content
-            try:
+            # 通过检查 thinking_content 列是否存在判断迁移是否已完成
+            cur.execute(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='message_history' AND COLUMN_NAME='thinking_content'",
+                (DB_NAME,),
+            )
+            if cur.fetchone()[0] == 0:
                 cur.execute("ALTER TABLE message_history DROP COLUMN IF EXISTS extra")
-            except Exception:
-                pass
-            try:
-                cur.execute(
-                    "ALTER TABLE message_history "
-                    "CHANGE COLUMN thread_id session_id VARCHAR(36) NOT NULL COMMENT '会话 ID'"
-                )
-            except Exception:
-                pass
-            try:
+                try:
+                    cur.execute(
+                        "ALTER TABLE message_history "
+                        "CHANGE COLUMN thread_id session_id VARCHAR(36) NOT NULL COMMENT '会话 ID'"
+                    )
+                except Exception:
+                    pass  # 列可能已改名或不存在
                 cur.execute(
                     "ALTER TABLE message_history "
                     "ADD COLUMN thinking_content LONGTEXT COMMENT '推理思考过程'"
                 )
-            except Exception:
-                pass
             conn.commit()
     finally:
         conn.close()

@@ -1,12 +1,12 @@
-# backend/agent_engine.py
+# backend/agent/engine.py
 """Deep Agent 工厂函数"""
 
 import os
 from deepagents import create_deep_agent, FilesystemPermission
 from deepagents.backends import CompositeBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
-from config import MODEL_CONFIG, SKILLS_DIR, PROJECT_ROOT
-from mysql_saver import MySQLSaver
+from config import MODEL_CONFIG, AGENT_CONFIG, SKILLS_DIR, PROJECT_ROOT
+from storage.mysql_saver import MySQLSaver
 from db import get_connection
 
 
@@ -27,6 +27,12 @@ def _discover_skills(skills_dir: str) -> list[str]:
 
 # System Prompt（模板，{session_id} 在 build_agent 中替换为真实 ID）
 MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。
+
+## 工作空间
+- 你的工作根目录是 `/`，所有上传的数据文件和生成的报告都在这里。
+- `/skills/` 目录包含只读的技能参考文件（SKILL.md），可读取但不能修改。
+- 除 `/` 和 `/skills/` 外，不存在其他目录（如 /tmp、/home、/root、/app），请勿尝试访问。
+
 ## 数据分析工具
 使用 data-analyst 子代理执行具体的数据分析任务。"""
 
@@ -76,10 +82,10 @@ def build_agent(session_id: str, tools: list, subagents: list):
         model_provider=MODEL_CONFIG["model_provider"],
         base_url=MODEL_CONFIG["base_url"],
         api_key=MODEL_CONFIG["api_key"],
-        temperature=0,
-        max_retries=3,     # API 调用失败时自动重试
-        timeout=120,        # 单次请求超时（秒），防止长时间 hang
-        max_tokens=8192,    # 限制单次响应最大 token，减少连接中断概率
+        temperature=AGENT_CONFIG["temperature"],
+        max_retries=AGENT_CONFIG["max_retries"],
+        timeout=AGENT_CONFIG["timeout"],
+        max_tokens=AGENT_CONFIG["max_tokens"],
     )
 
     # 自动发现 skills 目录下所有有效技能
@@ -103,7 +109,7 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
     from tools import create_data_tools
 
     # 用闭包创建绑定 worktree_root 的工具实例
-    load_csv, *_ = create_data_tools(worktree_root)
+    load_csv, _ = create_data_tools(worktree_root)
 
     # 子代理也需要显式配置技能（不继承父 agent）
     skill_paths = _discover_skills(SKILLS_DIR)

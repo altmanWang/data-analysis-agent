@@ -3,8 +3,8 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from session_manager import session_manager
-from worktree_manager import worktree_manager
+from services.session_manager import session_manager
+from services.worktree_manager import worktree_manager
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 

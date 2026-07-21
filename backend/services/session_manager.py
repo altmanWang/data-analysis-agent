@@ -1,4 +1,4 @@
-# backend/session_manager.py
+# backend/services/session_manager.py
 """会话元数据管理（MySQL CRUD）"""
 
 import uuid
@@ -28,6 +28,8 @@ class SessionManager:
                     (session_id,),
                 )
                 row = cur.fetchone()
+                if not row:
+                    raise RuntimeError(f"会话创建后查询失败: {session_id}")
                 return {
                     "session_id": row[0], "title": row[1], "user_id": row[2],
                     "worktree_path": row[3], "obs_archive_key": row[4],

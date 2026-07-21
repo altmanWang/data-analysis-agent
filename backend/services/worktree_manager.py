@@ -1,4 +1,4 @@
-# backend/worktree_manager.py
+# backend/services/worktree_manager.py
 """Worktree 生命周期管理：创建、归档、恢复、文件树"""
 
 import os
@@ -56,7 +56,7 @@ class WorktreeManager:
                         "ext": ext.lower(),
                     })
         except PermissionError:
-            pass
+            logger.warning("跳过无权限目录: %s", path, exc_info=True)
         return sorted(items, key=lambda x: (x["type"] != "dir", x["name"]))
 
     def read_file_content(self, session_id: str, file_path: str) -> tuple[bytes, str]:
@@ -112,7 +112,7 @@ class WorktreeManager:
         logger.info(f"[OBS打桩] 模拟上传: sessions/{session_id}/worktree.zip")
 
         # 记录 OBS key
-        from session_manager import session_manager as sm
+        from services.session_manager import session_manager as sm
         sm.update_obs_key(session_id, f"sessions/{session_id}/worktree.zip")
 
         # 清理本地

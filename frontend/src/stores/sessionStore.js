@@ -9,8 +9,13 @@ export const useSessionStore = defineStore('session', {
   }),
   actions: {
     async fetchSessions(userId = '') {
-      const res = await fetch(`/api/sessions?user_id=${userId}`)
-      this.sessions = await res.json()
+      try {
+        const res = await fetch(`/api/sessions?user_id=${userId}`)
+        if (!res.ok) throw new Error(`获取会话列表失败: ${res.status}`)
+        this.sessions = await res.json()
+      } catch (e) {
+        console.error('获取会话列表失败:', e)
+      }
     },
     async createSession(userId = '') {
       const res = await fetch(`/api/sessions?user_id=${userId}`, {
@@ -18,6 +23,7 @@ export const useSessionStore = defineStore('session', {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: '新会话' }),
       })
+      if (!res.ok) throw new Error(`创建会话失败: ${res.status}`)
       const session = await res.json()
       this.sessions.unshift(session)
       return session
@@ -29,9 +35,14 @@ export const useSessionStore = defineStore('session', {
       return this.currentMeta
     },
     async deleteSession(id) {
-      await fetch(`/api/sessions/${id}`, { method: 'DELETE' })
-      this.sessions = this.sessions.filter(s => s.session_id !== id)
-      if (this.currentId === id) this.currentId = null
+      try {
+        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error(`删除会话失败: ${res.status}`)
+        this.sessions = this.sessions.filter(s => s.session_id !== id)
+        if (this.currentId === id) this.currentId = null
+      } catch (e) {
+        console.error('删除会话失败:', e)
+      }
     },
   },
 })

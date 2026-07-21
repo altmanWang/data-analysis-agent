@@ -6,15 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db
+from config import CLEANUP_CONFIG
 from api.sessions import router as sessions_router
 from api.files import router as files_router
-from stream_handler import router as stream_router
-from command_handler import router as command_router
+from api.stream import router as stream_router
+from api.commands import router as command_router
 from api.threads import router as threads_router
-from agent_pool import agent_pool
-
-_CLEANUP_INTERVAL = 600   # 10 分钟
-_CLEANUP_IDLE_SECONDS = 3600  # 1 小时未访问则清理
+from agent.pool import agent_pool
 
 
 @asynccontextmanager
@@ -24,8 +22,8 @@ async def lifespan(app: FastAPI):
 
     async def cleanup_loop():
         while True:
-            await asyncio.sleep(_CLEANUP_INTERVAL)
-            agent_pool.cleanup_idle(max_idle_seconds=_CLEANUP_IDLE_SECONDS)
+            await asyncio.sleep(CLEANUP_CONFIG["interval_seconds"])
+            agent_pool.cleanup_idle(max_idle_seconds=CLEANUP_CONFIG["idle_timeout_seconds"])
 
     cleanup_task = asyncio.create_task(cleanup_loop())
     yield

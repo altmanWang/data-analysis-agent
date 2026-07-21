@@ -1,4 +1,4 @@
-# backend/stream_handler.py
+# backend/api/stream.py
 """简单 SSE 流式端点 — agent.astream_events(v2) → SSE 帧
 
 实现 POST /api/threads/{thread_id}/stream:
@@ -19,41 +19,50 @@ from typing import Any, AsyncIterator
 from fastapi import APIRouter, HTTPException, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 
-from agent_pool import agent_pool
+from agent.pool import agent_pool
+from config import STREAM_CONFIG
 from db import get_connection
-from session_manager import session_manager
+from services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/threads", tags=["stream"])
 
-_KEEPALIVE = 15  # 心跳间隔（秒）
-_db_executor = ThreadPoolExecutor(max_workers=4)
+_db_executor = ThreadPoolExecutor(max_workers=STREAM_CONFIG["db_executor_workers"])
+
+
+def _fire_and_forget(coro):
+    """创建后台任务并记录异常，防止静默丢失。"""
+    task = asyncio.create_task(coro)
+    task.add_done_callback(lambda t: logger.exception("后台任务异常", exc_info=t.exception()) if t.exception() else None)
+    return task
 
 
 # ── 异步 DB 写入 ─────────────────────────────────────────────
 
 
 def _save_message_sync(thread_id: str, role: str, content: str = "", **kwargs) -> None:
+    conn = None
     try:
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO message_history (session_id, role, content, thinking_content, tool_name, "
-            "tool_args, tool_result, tool_status) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            (
-                thread_id, role, content[:10000] if content else "",
-                kwargs.get("thinking_content", "")[:50000],
-                kwargs.get("tool_name"), kwargs.get("tool_args"),
-                kwargs.get("tool_result"), kwargs.get("tool_status"),
-            ),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO message_history (session_id, role, content, thinking_content, tool_name, "
+                "tool_args, tool_result, tool_status) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                thread_id, role, content[:STREAM_CONFIG["content_truncate"]] if content else "",
+                kwargs.get("thinking_content", "")[:STREAM_CONFIG["thinking_truncate"]],
+                    kwargs.get("tool_name"), kwargs.get("tool_args"),
+                    kwargs.get("tool_result"), kwargs.get("tool_status"),
+                ),
+            )
+            conn.commit()
     except Exception:
         logger.exception("保存消息失败 thread_id=%s role=%s", thread_id, role)
+    finally:
+        if conn:
+            conn.close()
 
 
 async def _save_message(thread_id: str, role: str, content: str = "", **kwargs) -> None:
@@ -87,17 +96,17 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
 
     # 保存用户消息
     if content:
-        asyncio.create_task(_save_message(thread_id, "user", content))
+        _fire_and_forget(_save_message(thread_id, "user", content))
 
     async def generate() -> AsyncIterator[str]:
         if not content:
             # 无 content → 纯心跳（供 hydration/keepalive）
             while True:
                 yield ": heartbeat\n\n"
-                await asyncio.sleep(_KEEPALIVE)
+                await asyncio.sleep(STREAM_CONFIG["keepalive_seconds"])
 
-        current_text = ""
-        current_thinking = ""
+        current_text_parts: list[str] = []
+        current_thinking_parts: list[str] = []
         pending_tools: dict[str, dict] = {}  # run_id → {name, input}
 
         try:
@@ -117,12 +126,12 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                     chunk = evt_data.get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         text: str = chunk.content
-                        current_text += text
+                        current_text_parts.append(text)
                         yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
                     # R1 等推理模型的 thinking（仅 reasoning_content 非空时推送）
                     reasoning = getattr(chunk, "response_metadata", {}).get("reasoning_content", "")
                     if reasoning:
-                        current_thinking += reasoning
+                        current_thinking_parts.append(reasoning)
                         yield f"data: {json.dumps({'type': 'thinking', 'content': reasoning})}\n\n"
 
                 # ── 工具开始（仅缓存，不推送）──
@@ -160,8 +169,8 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                     else:
                         out_str = str(raw_output)
 
-                    yield f"data: {json.dumps({'type': 'tool', 'name': name, 'id': run_id, 'input': str(raw_input)[:200], 'result': out_str})}\n\n"
-                    asyncio.create_task(_save_message(
+                    yield f"data: {json.dumps({'type': 'tool', 'name': name, 'id': run_id, 'input': str(raw_input)[:STREAM_CONFIG['tool_input_truncate']], 'result': out_str})}\n\n"
+                    _fire_and_forget(_save_message(
                         thread_id, "tool", tool_name=name,
                         tool_args=json.dumps(raw_input, ensure_ascii=False, default=str) if raw_input else None,
                         tool_result=json.dumps(raw_output, ensure_ascii=False, default=str) if raw_output else None,
@@ -169,10 +178,10 @@ async def stream_endpoint(thread_id: str, request: FastAPIRequest):
                     ))
 
             # 保存 assistant 消息（含思考过程）
-            if current_text:
-                asyncio.create_task(_save_message(
-                    thread_id, "assistant", current_text,
-                    thinking_content=current_thinking,
+            if current_text_parts:
+                _fire_and_forget(_save_message(
+                    thread_id, "assistant", "".join(current_text_parts),
+                    thinking_content="".join(current_thinking_parts),
                 ))
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"

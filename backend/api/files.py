@@ -5,8 +5,8 @@ import os
 import aiofiles
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
-from session_manager import session_manager
-from worktree_manager import worktree_manager
+from services.session_manager import session_manager
+from services.worktree_manager import worktree_manager
 from config import WORKTREE_ROOT
 
 router = APIRouter(prefix="/api/sessions/{session_id}/files", tags=["files"])

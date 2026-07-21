@@ -1,4 +1,4 @@
-# backend/mysql_saver.py
+# backend/storage/mysql_saver.py
 """MySQL Checkpointer - 实现 LangGraph BaseCheckpointSaver 协议
 
 参照 langgraph/checkpoint/sqlite/__init__.py 源码适配为 pymysql。
@@ -238,19 +238,21 @@ class MySQLSaver(BaseCheckpointSaver):
 
         conn, cur = self._cursor()
         try:
+            rows = []
             for idx, (channel, value) in enumerate(writes):
                 w_type, w_bytes = self.serde.dumps_typed(value)
-                cur.execute(
-                    "INSERT INTO checkpoint_writes "
-                    "(thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                    "ON DUPLICATE KEY UPDATE "
-                    "channel=VALUES(channel), type=VALUES(type), value=VALUES(value)",
-                    (
-                        thread_id, checkpoint_ns, checkpoint_id,
-                        task_id, idx, channel, w_type, w_bytes,
-                    ),
-                )
+                rows.append((
+                    thread_id, checkpoint_ns, checkpoint_id,
+                    task_id, idx, channel, w_type, w_bytes,
+                ))
+            cur.executemany(
+                "INSERT INTO checkpoint_writes "
+                "(thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON DUPLICATE KEY UPDATE "
+                "channel=VALUES(channel), type=VALUES(type), value=VALUES(value)",
+                rows,
+            )
             conn.commit()
         finally:
             cur.close()
@@ -365,5 +367,8 @@ class MySQLSaver(BaseCheckpointSaver):
         self, config: Optional[dict], *, filter: Optional[dict] = None,
         before: Optional[dict] = None, limit: Optional[int] = None,
     ) -> AsyncIterator[CheckpointTuple]:
-        for item in self.list(config, filter=filter, before=before, limit=limit):
+        items = await asyncio.to_thread(
+            lambda: list(self.list(config, filter=filter, before=before, limit=limit))
+        )
+        for item in items:
             yield item
