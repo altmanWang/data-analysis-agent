@@ -30,12 +30,15 @@
         <!-- 工具调用卡片 -->
         <div v-else-if="item.kind === 'tool_call'" class="tool-card" @click="toggleExpand(item)">
           <div class="tool-card-header">
-            <span class="tool-icon">{{ toolIcon(item.name) }}</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" class="tool-icon-svg">
+              <circle cx="5" cy="5" r="4" fill="#93C5FD"/>
+            </svg>
             <span class="tool-card-name">{{ formatToolName(item.name) }}</span>
             <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
+          <div v-if="item.name === 'task'" v-show="!item._expanded" class="tool-card-preview tool-card-preview-md" v-html="renderMd(taskPreviewMd(item))"></div>
           <div v-if="item._expanded" class="tool-card-body">
-            <div v-if="item.input" class="card-section">
+            <div v-if="item.input && item.name !== 'task'" class="card-section">
               <div class="card-label">参数</div>
               <pre class="card-pre">{{ item.input }}</pre>
             </div>
@@ -176,7 +179,7 @@ async function loadHistory() {
       if (r.role === 'tool') {
         items.push({
           id: `${props.id}-tool-${Math.random()}`, kind: 'tool_call', role: 'tool',
-          name: r.tool_name || '', args: r.tool_args || null,
+          name: r.tool_name || '', input: r.tool_args || '',
           status: r.tool_status || 'done', result: r.tool_result || null, _expanded: false,
         })
       } else {
@@ -476,6 +479,16 @@ function fmtResult(result) {
   try { return JSON.stringify(result, null, 2) } catch { return String(result) }
 }
 
+function taskPreviewMd(item) {
+  if (!item.result) return '子代理执行完成'
+  const text = String(item.result)
+  // 只取第一句话（中文到。英文到. 换行），避免与外层消息重复
+  const firstLine = text.split('\n')[0].trim()
+  if (firstLine.length <= 80) return firstLine
+  const m = firstLine.match(/^(.+?[。.!！?？])/)
+  return m ? m[1] : firstLine.slice(0, 80) + '...'
+}
+
 // ── 清理 ──
 onBeforeUnmount(() => {
   abortController?.abort()
@@ -572,17 +585,44 @@ onBeforeUnmount(() => {
 }
 
 /* ── tool card ── */
-.tool-card { margin: 4px auto; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); cursor: pointer; overflow: hidden; max-width: 800px; width: calc(100% - var(--spacing-2xl) * 2); }
-.tool-card-header { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); font-size: var(--font-size-sm); }
-.tool-icon { font-size: var(--font-size-base); flex-shrink: 0; }
-.tool-card-name { font-weight: var(--font-weight-medium); color: var(--color-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-card-status { color: var(--color-text-muted); font-size: var(--font-size-xs); flex-shrink: 0; }
+.tool-card { margin: 4px auto; border-radius: var(--radius-lg); background: #F3F4F6; cursor: pointer; overflow: hidden; max-width: 800px; width: calc(100% - var(--spacing-2xl) * 2); }
+.tool-card-header { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-md); }
+.tool-icon-svg { flex-shrink: 0; }
+.tool-card-name { font-weight: var(--font-weight-medium); color: var(--color-text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-base); }
 .tool-card-chevron { flex-shrink: 0; color: var(--color-text-muted); transition: transform var(--transition-fast); }
 .tool-card-chevron.expanded { transform: rotate(180deg); }
-.tool-card-body { padding: 0 var(--spacing-md) var(--spacing-md); border-top: 1px solid var(--color-border-light); }
+.tool-card-preview {
+  padding: 0 var(--spacing-md) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.tool-card-preview-md {
+  white-space: normal;
+  max-height: 4.2em;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1.6;
+  font-size: var(--font-size-base);
+}
+.tool-card-preview-md :deep(p) { margin: 0 0 2px; }
+.tool-card-preview-md :deep(em) { color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.tool-card-preview-md :deep(code) { font-size: 0.9em; background: transparent; }
+.tool-card-preview-md :deep(pre) { display: none; }
+.tool-card-preview-md :deep(h1), .tool-card-preview-md :deep(h2), .tool-card-preview-md :deep(h3) { font-size: var(--font-size-base); margin: 0; font-weight: var(--font-weight-medium); }
+.tool-card-preview-md :deep(ul), .tool-card-preview-md :deep(ol) { padding-left: var(--spacing-lg); margin: 2px 0; }
+.tool-card-preview-md :deep(li) { margin: 0; }
+.tool-card-body {
+  padding: 0 var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid #D1D5DB;
+}
 .card-section { margin-top: var(--spacing-sm); }
 .card-label { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: var(--spacing-xs); text-transform: uppercase; letter-spacing: 0.5px; }
-.card-pre { font-size: var(--font-size-xs); background: var(--color-bg-muted); padding: var(--spacing-sm); border-radius: var(--radius-sm); overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); font-family: 'JetBrains Mono', monospace; }
+.card-pre { font-size: var(--font-size-sm); background: #FAFBFC; padding: var(--spacing-sm); border-radius: var(--radius-sm); overflow-x: auto; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); font-family: 'JetBrains Mono', monospace; }
 .card-empty { text-align: center; color: var(--color-text-muted); font-size: var(--font-size-sm); padding: var(--spacing-md); }
 
 /* ── write_todos mini list ── */
