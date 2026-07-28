@@ -28,6 +28,39 @@
           </svg>
         </button>
       </div>
+
+      <!-- Agent 选择器（输入框下方） -->
+      <div class="agent-row">
+        <button class="agent-trigger" @click="toggleAgentList">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M8 14v.01M16 14v.01"/><path d="M5 20h14a2 2 0 0 0 2-2v-3a2 2 0 0 0-4 0v1H7v-1a2 2 0 0 0-4 0v3a2 2 0 0 0 2 2z"/></svg>
+          <span>Agent{{ selectedAgents.length ? ` (${selectedAgents.length})` : '' }}</span>
+          <svg class="agent-chevron" :class="{ open: showAgentList }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+
+        <!-- 已选 Agent 标签 -->
+        <span v-for="a in selectedAgents" :key="a.id" class="agent-tag" @click="toggleAgent(a)">
+          {{ a.name }}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </span>
+
+        <!-- 下拉列表 -->
+        <div v-if="showAgentList" class="agent-list">
+          <div
+            v-for="a in agentOptions"
+            :key="a.id"
+            class="agent-list-item"
+            @click="toggleAgent(a)"
+          >
+            <span class="agent-check" :class="{ checked: isSelected(a.id) }">
+              <svg v-if="isSelected(a.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="agent-list-name">{{ a.name }}</span>
+            <span class="agent-list-desc">{{ a.description || '' }}</span>
+          </div>
+          <div v-if="agentOptions.length === 1" class="agent-list-empty">暂无自定义 Agent</div>
+        </div>
+        <div v-if="showAgentList" class="agent-backdrop" @click="showAgentList = false" />
+      </div>
     </div>
     <div class="disclaimer">数据分析 Agent 可能产生错误信息，请核实重要数据</div>
   </div>
@@ -55,6 +88,38 @@ const showMention = ref(false)
 const mentionStart = ref(0)
 const selectedMentions = ref([])
 const inputRef = ref(null)
+
+// ── Agent 选择（多选）──
+const sessionStore = useSessionStore()
+const showAgentList = ref(false)
+const selectedAgents = computed(() => sessionStore.selectedAgents)
+
+function toggleAgentList() {
+  showAgentList.value = !showAgentList.value
+  if (showAgentList.value) sessionStore.fetchAgents()
+}
+const selectedAgentIds = computed(() => sessionStore.selectedAgentIds)
+const agentOptions = computed(() => {
+  const list = [{ id: 0, name: '默认', description: '' }]
+  sessionStore.agents.forEach(a => list.push(a))
+  return list
+})
+
+function isSelected(id) {
+  if (id === 0) return selectedAgentIds.value.length === 0
+  return selectedAgentIds.value.includes(id)
+}
+
+async function toggleAgent(agent) {
+  // 选择"默认" = 清空所有
+  if (agent.id === 0) {
+    await sessionStore.clearAgents(props.sessionId)
+    showAgentList.value = false
+    return
+  }
+  await sessionStore.toggleAgent(props.sessionId, agent.id)
+  sessionStore.fetchAgents()
+}
 
 // ── @mention 文件列表 ──
 const mentionFiles = computed(() => {
@@ -102,6 +167,14 @@ async function onUpload(e) {
   // 无有效 session → 先创建再上传
   if (!props.sessionId || props.sessionId === 'new' || props.sessionId === 'undefined') {
     const s = await sessionStore.createSession()
+    // 同步预选的 Agent
+    for (const aid of sessionStore.selectedAgentIds) {
+      await fetch(`/api/sessions/${s.session_id}/agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: aid }),
+      }).catch(() => {})
+    }
     await useFileStore().upload(s.session_id, file)
     router.push(`/session/${s.session_id}`)
     return
@@ -257,5 +330,123 @@ textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
   padding-top: var(--spacing-sm);
   max-width: var(--chat-max-width);
   margin: 0 auto;
+}
+
+/* ── Agent 选择器 ── */
+.agent-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+.agent-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+.agent-trigger:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.agent-chevron { transition: transform var(--transition-fast); }
+.agent-chevron.open { transform: rotate(180deg); }
+
+.agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+.agent-tag:hover {
+  background: #FEE2E2;
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.agent-list {
+  position: absolute;
+  bottom: 100%;
+  left: var(--spacing-md);
+  width: 220px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+  z-index: var(--z-dropdown);
+  padding: var(--spacing-xs) 0;
+}
+.agent-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  transition: background var(--transition-fast);
+}
+.agent-list-item:hover { background: var(--color-bg-hover); }
+.agent-check {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-primary);
+  transition: all var(--transition-fast);
+}
+.agent-check.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+.agent-list-name {
+  flex: 1;
+}
+.agent-list-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.agent-list-empty {
+  padding: var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.agent-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dropdown) - 1);
 }
 </style>

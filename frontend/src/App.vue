@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <SessionSidebar />
+    <SessionSidebar @open-agent-manager="showAgentManager = true" />
     <router-view :key="$route.params.id" />
     <WorktreePanel
       v-if="fileStore.tree.length > 0 || fileStore.previewPath"
@@ -18,21 +18,27 @@
         <polyline points="15 18 9 12 15 6" />
       </svg>
     </button>
+    <AgentManagerModal :visible="showAgentManager" @close="showAgentManager = false" />
   </div>
 </template>
 
 <script>
+import { ref, provide } from 'vue'
 import SessionSidebar from './components/SessionSidebar.vue'
 import WorktreePanel from './components/WorktreePanel.vue'
+import AgentManagerModal from './components/AgentManagerModal.vue'
 import { useFileStore } from './stores/fileStore'
 
 export default {
-  components: { SessionSidebar, WorktreePanel },
+  components: { SessionSidebar, WorktreePanel, AgentManagerModal },
   data: () => ({
     panelCollapsed: false,
   }),
   setup() {
-    return { fileStore: useFileStore() }
+    const showAgentManager = ref(false)
+    provide('showAgentManager', showAgentManager)
+    provide('openAgentManager', () => { showAgentManager.value = true })
+    return { fileStore: useFileStore(), showAgentManager }
   },
 }
 </script>

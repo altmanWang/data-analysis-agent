@@ -2,7 +2,10 @@
 """Deep Agent 工厂函数"""
 
 import os
+import logging
 from deepagents import create_deep_agent, FilesystemPermission
+
+logger = logging.getLogger(__name__)
 from deepagents.backends import CompositeBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
 from config import MODEL_CONFIG, AGENT_CONFIG, SKILLS_DIR, PROJECT_ROOT
@@ -25,16 +28,52 @@ def _discover_skills(skills_dir: str) -> list[str]:
     return discovered
 
 
-# System Prompt（模板，{session_id} 在 build_agent 中替换为真实 ID）
-MAIN_SYSTEM_PROMPT = """你是专业的数据分析师助手。用户上传 CSV/Excel 文件后进行数据分析。
+# System Prompt（模板，{custom_agents_section} 在 build_agent 中动态替换）
+MAIN_SYSTEM_PROMPT = """你是一个通用Agent。
 
 ## 工作空间
 - 你的工作根目录是 `/`，所有上传的数据文件和生成的报告都在这里。
 - `/skills/` 目录包含只读的技能参考文件（SKILL.md），可读取但不能修改。
 - 除 `/` 和 `/skills/` 外，不存在其他目录（如 /tmp、/home、/root、/app），请勿尝试访问。
+"""
 
-## 数据分析工具
-使用 data-analyst 子代理执行具体的数据分析任务。"""
+
+def _load_session_agents(session_id: str) -> list[dict]:
+    """从 MySQL 加载当前 session 选中的自定义 Agent，构建 subagent 配置。
+
+    直接查 session_agents 表，不依赖文件系统。subagent dict 格式：
+    {name, description, system_prompt}
+    """
+    from db import get_connection
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT a.name, a.description, a.system_prompt "
+                "FROM agents a "
+                "INNER JOIN session_agents sa ON a.id = sa.agent_id "
+                "WHERE sa.session_id=%s "
+                "ORDER BY sa.created_at",
+                (session_id,),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    subagents = []
+    for name, description, system_prompt in rows:
+        subagents.append({
+            "name": name,
+            "description": description or f"用户自定义 Agent: {name}",
+            "system_prompt": system_prompt,
+        })
+
+    if subagents:
+        logger.info(
+            "session=%s 从数据库加载自定义 Agent: %s",
+            session_id, [s["name"] for s in subagents],
+        )
+    return subagents
 
 
 def build_agent(session_id: str, tools: list, subagents: list):
@@ -90,14 +129,35 @@ def build_agent(session_id: str, tools: list, subagents: list):
 
     # 自动发现 skills 目录下所有有效技能
     skill_paths = _discover_skills(skills_dir)
+
+    # 从 MySQL 加载用户自定义 Agent + 默认 subagents
+    custom_agents = _load_session_agents(session_id)
+    all_subagents = custom_agents + subagents
+
+    # 动态构建系统提示词：提及当前可用的自定义 Agent
+    custom_agents_section = ""
+    if custom_agents:
+        names = [a["name"] for a in custom_agents]
+        custom_agents_section = (
+            "\n## 当前激活的自定义 Agent\n"
+            + "\n".join(f"- **{n}**：{a['description']}" for n, a in zip(names, custom_agents))
+            + "\n\n以上 Agent 已激活，请在任务中根据需要使用其专业能力。"
+        )
+        logger.info(
+            "session=%s 共 %d 个 subagent（自定义=%d 默认=%d）",
+            session_id, len(all_subagents), len(custom_agents), len(subagents),
+        )
+
+    system_prompt = MAIN_SYSTEM_PROMPT.format(custom_agents_section=custom_agents_section)
+
     agent = create_deep_agent(
         model=model,
         backend=backend,
         tools=tools,
-        subagents=subagents,
+        subagents=all_subagents,
         skills=skill_paths,
         permissions=permissions,
-        system_prompt=MAIN_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         checkpointer=checkpointer,
     )
 

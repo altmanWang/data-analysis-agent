@@ -60,7 +60,18 @@ def init_db():
                     INDEX idx_last_active (last_active)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
-        conn.commit()
+            # 迁移 session_agents：旧表 unique key 是 (session_id)，改为复合唯一 (session_id, agent_id)
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
+                    "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='session_agents' AND CONSTRAINT_NAME='uk_session'",
+                    (DB_NAME,),
+                )
+                if cur.fetchone()[0] > 0:
+                    cur.execute("ALTER TABLE session_agents DROP INDEX uk_session")
+            except Exception:
+                pass
+            conn.commit()
 
         # 创建 checkpointer 表
         from storage.mysql_saver import MySQLSaver
@@ -104,6 +115,52 @@ def init_db():
                     "ALTER TABLE message_history "
                     "ADD COLUMN thinking_content LONGTEXT COMMENT '推理思考过程'"
                 )
+            conn.commit()
+
+        # 创建 agents 表 — 用户自定义 Agent 元数据
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agents (
+                    id              INT AUTO_INCREMENT PRIMARY KEY,
+                    name            VARCHAR(100) NOT NULL COMMENT 'Agent 名称',
+                    description     VARCHAR(500) DEFAULT '' COMMENT 'Agent 描述（用于主 Agent 路由判断）',
+                    system_prompt   LONGTEXT NOT NULL COMMENT '系统提示词',
+                    user_id         VARCHAR(100) DEFAULT '' COMMENT '创建者',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY uk_name_user (name, user_id),
+                    INDEX idx_user_id (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """)
+            # 迁移：旧表无 description 列则新增
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='agents' AND COLUMN_NAME='description'",
+                    (DB_NAME,),
+                )
+                if cur.fetchone()[0] == 0:
+                    cur.execute(
+                        "ALTER TABLE agents "
+                        "ADD COLUMN description VARCHAR(500) DEFAULT '' COMMENT 'Agent 描述'"
+                    )
+            except Exception:
+                pass
+            conn.commit()
+
+        # 创建 session_agents 表 — 会话与 Agent 的关联
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS session_agents (
+                    id              INT AUTO_INCREMENT PRIMARY KEY,
+                    session_id      VARCHAR(36) NOT NULL COMMENT '会话 ID',
+                    agent_id        INT NOT NULL COMMENT 'Agent ID',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uk_session_agent (session_id, agent_id),
+                    INDEX idx_session (session_id),
+                    INDEX idx_agent_id (agent_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """)
             conn.commit()
     finally:
         conn.close()

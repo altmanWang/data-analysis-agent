@@ -17,6 +17,16 @@
       </button>
     </div>
 
+    <!-- Agent 管理入口 -->
+    <button class="agent-entry" @click="$emit('open-agent-manager')" v-show="!isCollapsed">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="agent-icon">
+        <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M8 14v.01M16 14v.01M12 14v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M5 20h14a2 2 0 0 0 2-2v-3a2 2 0 0 0-4 0v1H7v-1a2 2 0 0 0-4 0v3a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.2" transform="scale(0.67) translate(5, 3)"/>
+      </svg>
+      <span>Agent</span>
+    </button>
+
     <!-- 搜索框 -->
     <div class="search-box" v-show="!isCollapsed">
       <svg class="search-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -111,6 +121,7 @@ import { useSessionStore } from '../stores/sessionStore'
 import { useFileStore } from '../stores/fileStore'
 
 export default {
+  emits: ['open-agent-manager'],
   setup() {
     const s = useSessionStore()
     s.fetchSessions()
@@ -379,6 +390,33 @@ export default {
 .search-input:focus {
   border-color: var(--color-border-focus);
   box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+/* ===== Agent 管理入口 ===== */
+.agent-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0 var(--spacing-md) var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  width: calc(100% - var(--spacing-md) * 2);
+}
+.agent-entry:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-primary);
+}
+.agent-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* ===== 新建会话按钮 ===== */

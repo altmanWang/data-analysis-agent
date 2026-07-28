@@ -1,8 +1,13 @@
 <template>
   <div class="chat-panel" :class="{ 'has-messages': hasContent }">
+    <!-- 有会话时的顶栏 -->
     <div v-if="hasValidThread && sessionTitle" class="chat-topbar">
       <span class="topbar-title">{{ sessionTitle }}</span>
       <span class="topbar-mode-tag">数据分析模式</span>
+    </div>
+    <!-- 无会话时：顶部占位 -->
+    <div v-else class="chat-topbar chat-topbar--empty">
+      <span class="topbar-title topbar-title--muted">数据分析 Agent</span>
     </div>
 
     <div class="chat-messages" ref="msgContainer" @scroll="onScroll">
@@ -20,6 +25,7 @@
 
     <ChatInput ref="chatInputRef" :sessionId="id" :disabled="sessionStatus === 'archived'" :isLoading="isLoading"
       :hasMessages="hasContent" @send="onSend" />
+
   </div>
 </template>
 
@@ -69,6 +75,7 @@ onMounted(async () => {
       sessionStatus.value = m.status
       useFileStore().fetchTree(props.id)
       await loadHistory()
+      sessionStore.fetchSessionAgents(props.id)  // 加载当前 session 选中的 Agent
     } catch { router.push('/') }
     if (sessionStore.pendingInput) {
       const p = sessionStore.pendingInput
@@ -143,7 +150,17 @@ async function doSend(content, _mentions) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: content.slice(0, 50) }),
       })
-      router.push(`/session/${(await res.json()).session_id}`)
+      const session = await res.json()
+      const sid = session.session_id
+      // 预选的 Agent 同步到新会话
+      for (const aid of sessionStore.selectedAgentIds) {
+        await fetch(`/api/sessions/${sid}/agent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent_id: aid }),
+        }).catch(() => {})
+      }
+      router.push(`/session/${sid}`)
     } catch { chatInputRef.value?.restore(content, []); sessionStore.pendingInput = null }
     return
   }
@@ -279,6 +296,16 @@ onBeforeUnmount(() => {
   flex: 1;
   min-width: 0;
 }
+.topbar-title--muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
 .topbar-mode-tag {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -287,7 +314,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-sm);
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: var(--spacing-md);
+  margin-left: var(--spacing-sm);
 }
 
   /* ── messages ── */
