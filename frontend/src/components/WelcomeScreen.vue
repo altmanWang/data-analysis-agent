@@ -64,8 +64,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
-  padding-top: 10vh;
+  min-height: 100%;
+  padding-top: 5vh;
+  padding-bottom: 5vh;
 }
 
 .welcome-icon {

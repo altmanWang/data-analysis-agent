@@ -254,10 +254,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100vh;
   background: var(--color-bg);
-  justify-content: center;
+  justify-content: flex-start;
   position: relative;
 }
-.chat-panel.has-messages { justify-content: flex-start; }
 
 /* ── top bar ── */
 .chat-topbar {
@@ -291,9 +290,12 @@ onBeforeUnmount(() => {
   margin-left: var(--spacing-md);
 }
 
-/* ── messages ── */
-.chat-messages { overflow-y: auto; padding: 0; }
-.has-messages .chat-messages { flex: 1; }
+  /* ── messages ── */
+.chat-messages {
+  overflow-y: auto;
+  padding: 0;
+  flex: 1;
+}
 
 /* ── scroll to bottom ── */
 .scroll-bottom-wrapper {
