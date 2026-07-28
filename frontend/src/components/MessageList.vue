@@ -52,6 +52,16 @@
       @toggle="toggleExpand(item)"
     />
 
+    <!-- ── 中断问题（ask_user） ── -->
+    <template v-else-if="item.kind === 'interrupt'">
+      <div class="msg-avatar assistant-avatar">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div class="msg-body">
+        <div class="interrupt-msg" v-html="renderMd(item.content)"></div>
+      </div>
+    </template>
+
     <!-- ── 完成标记 ── -->
     <div v-else-if="item.kind === 'done'" class="done-marker">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -146,6 +156,7 @@ function renderMd(text_) {
 function msgRowClass(item) {
   if (item.kind === 'error') return 'message-row error'
   if (item.kind === 'thinking') return 'message-row assistant'
+  if (item.kind === 'interrupt') return 'message-row assistant'
   if (item.kind === 'done') return 'message-row assistant'
   if (item.kind === 'tool_call') return ''
   return ['message-row', item.role]
@@ -519,4 +530,19 @@ function taskPreviewMd(item) {
   border: 1px solid var(--color-border-light);
   margin: var(--spacing-sm) 0;
 }
+
+/* ── 中断问题 ── */
+.interrupt-msg {
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-subtle);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--spacing-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+.interrupt-msg :deep(p) { margin-bottom: var(--spacing-xs); }
+.interrupt-msg :deep(p:last-child) { margin-bottom: 0; }
+.interrupt-msg :deep(strong) { color: var(--color-text); }
+.interrupt-msg :deep(li) { margin-bottom: var(--spacing-xs); }
 </style>

@@ -13,6 +13,12 @@
     <div class="chat-messages" ref="msgContainer" @scroll="onScroll">
       <WelcomeScreen v-if="!id && timelineItems.length === 0" />
       <MessageList :items="timelineItems" :sessionId="id" :isLoading="isLoading" />
+      <div v-if="interruptQuestion" class="answer-bar">
+        <input v-model="interruptAnswer" class="answer-input" placeholder="输入回答..." @keydown.enter="submitAnswer" autofocus />
+        <button class="answer-send" @click="submitAnswer" :disabled="!interruptAnswer.trim()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        </button>
+      </div>
       <div ref="bottom" />
       <div v-show="showScrollBtn" class="scroll-bottom-wrapper">
         <button class="scroll-to-bottom" @click="scrollToBottom" aria-label="滚动到底部">
@@ -23,9 +29,8 @@
       </div>
     </div>
 
-    <ChatInput ref="chatInputRef" :sessionId="id" :disabled="sessionStatus === 'archived'" :isLoading="isLoading"
+    <ChatInput ref="chatInputRef" :sessionId="id" :disabled="sessionStatus === 'archived' || !!interruptQuestion" :isLoading="isLoading"
       :hasMessages="hasContent" @send="onSend" />
-
   </div>
 </template>
 
@@ -51,6 +56,8 @@ const sessionStatus = ref('active')
 const timelineItems = shallowRef([])
 const isLoading = ref(false)
 const showScrollBtn = ref(false)
+const interruptQuestion = ref(null)
+const interruptAnswer = ref('')
 let abortController = null
 
 // ── 计算属性 ──
@@ -232,6 +239,16 @@ async function doSend(content, _mentions) {
           }]
           useFileStore().fetchTree(tid)
           abortController.abort()
+        } else if (data.type === 'interrupt') {
+          // ask_user 暂停：问题作为醒目消息 + 回答栏
+          interruptQuestion.value = data.question || ''
+          timelineItems.value = [...timelineItems.value, {
+            id: `${Date.now()}-ask`, kind: 'interrupt', role: 'assistant',
+            content: data.question || '', done: true,
+          }]
+          isLoading.value = false
+          nextTick(() => { bottom.value?.scrollIntoView({ behavior: 'smooth' }) })
+          return
         } else if (data.type === 'error') {
           timelineItems.value = [...timelineItems.value, {
             id: `${Date.now()}-err`, kind: 'error', content: data.content || '服务器内部错误',
@@ -252,9 +269,59 @@ async function doSend(content, _mentions) {
       }]
     }
   } finally {
-    isLoading.value = false
+    if (!interruptQuestion.value) isLoading.value = false
     abortController = null
   }
+}
+
+function submitAnswer() {
+  const a = interruptAnswer.value.trim()
+  if (!a) return
+  interruptAnswer.value = ''
+  resumeWithAnswer(a)
+}
+
+async function resumeWithAnswer(answer) {
+  if (!props.id) return
+  interruptQuestion.value = null
+  isLoading.value = true
+  abortController = new AbortController()
+  const tid = props.id
+  let currentMsgId = null, currentText = '', currentThinkingId = null, currentThinking = ''
+  timelineItems.value = [...timelineItems.value, { id: Date.now().toString(), kind: 'message', role: 'user', content: answer, done: true }]
+  try {
+    await fetchEventSource(`/api/threads/${tid}/resume`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume: answer }),
+      signal: abortController.signal, openWhenHidden: true,
+      onmessage(event) {
+        if (!event.data) return; let data; try { data = JSON.parse(event.data) } catch { return }
+        if (data.type === 'thinking') {
+          if (!currentThinkingId) { currentThinkingId = `${Date.now()}-think`; timelineItems.value = [...timelineItems.value, { id: currentThinkingId, kind: 'thinking', role: 'assistant', content: '', _expanded: false }] }
+          currentThinking += data.content; timelineItems.value = timelineItems.value.map(i => i.id === currentThinkingId ? { ...i, content: currentThinking } : i)
+        } else if (data.type === 'text') {
+          if (!currentMsgId) { currentMsgId = `${Date.now()}-ai`; timelineItems.value = [...timelineItems.value, { id: currentMsgId, kind: 'message', role: 'assistant', content: '', done: false }] }
+          currentText += data.content; timelineItems.value = timelineItems.value.map(i => i.id === currentMsgId ? { ...i, content: currentText } : i)
+        } else if (data.type === 'tool') {
+          timelineItems.value = [...timelineItems.value, { id: data.id || `${Date.now()}-tool`, kind: 'tool_call', role: 'tool', name: data.name, status: 'done', result: data.result, input: data.input || '', _expanded: false }]
+          if (data.name === 'task') { currentMsgId = null; currentText = '' }
+        } else if (data.type === 'done') {
+          if (currentMsgId) timelineItems.value = timelineItems.value.map(i => i.id === currentMsgId ? { ...i, done: true } : i)
+          useFileStore().fetchTree(tid)
+        } else if (data.type === 'interrupt') {
+          interruptQuestion.value = data.question || ''
+          timelineItems.value = [...timelineItems.value, { id: `${Date.now()}-ask`, kind: 'interrupt', role: 'assistant', content: data.question || '', done: true }]
+          isLoading.value = false
+          nextTick(() => { bottom.value?.scrollIntoView({ behavior: 'smooth' }) })
+          return
+        } else if (data.type === 'error') {
+          timelineItems.value = [...timelineItems.value, { id: `${Date.now()}-err`, kind: 'error', content: data.content || '服务器内部错误' }]
+        }
+      },
+      onerror(err) { throw err },
+    })
+  } catch (err) { if (err.name !== 'AbortError') console.error('Resume error:', err) }
+  finally { if (!interruptQuestion.value) { isLoading.value = false; abortController = null } }
 }
 
 // ── 清理 ──
@@ -354,4 +421,36 @@ onBeforeUnmount(() => {
   background: var(--color-bg-hover);
   color: var(--color-text);
 }
+
+.answer-bar {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-2xl);
+  margin: var(--spacing-sm) auto var(--spacing-md);
+  max-width: var(--chat-max-width);
+  width: 100%;
+}
+.answer-input {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-input);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-bg-card);
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(57,100,254,0.1);
+  transition: box-shadow var(--transition-fast);
+}
+.answer-input:focus { box-shadow: 0 0 0 3px rgba(57,100,254,0.15); }
+.answer-send {
+  width: 36px; height: 36px; padding: 0;
+  background: var(--color-primary); color: var(--color-text-inverse);
+  border: none; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.answer-send:hover:not(:disabled) { background: var(--color-primary-hover); transform: scale(1.05); }
+.answer-send:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>

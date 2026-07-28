@@ -19,10 +19,13 @@
 
     <!-- Agent 管理入口 -->
     <button class="agent-entry" @click="$emit('open-agent-manager')" v-show="!isCollapsed">
-      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="agent-icon">
-        <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" stroke="currentColor" stroke-width="1.2"/>
-        <path d="M8 14v.01M16 14v.01M12 14v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M5 20h14a2 2 0 0 0 2-2v-3a2 2 0 0 0-4 0v1H7v-1a2 2 0 0 0-4 0v3a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.2" transform="scale(0.67) translate(5, 3)"/>
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="agent-icon">
+        <rect x="3" y="5" width="14" height="11" rx="3" stroke="currentColor" stroke-width="1.3"/>
+        <circle cx="7.5" cy="10" r="1.2" fill="currentColor"/>
+        <circle cx="12.5" cy="10" r="1.2" fill="currentColor"/>
+        <path d="M7 14h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="8" y1="5" x2="8" y2="2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="12" y1="5" x2="12" y2="2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
       </svg>
       <span>Agent</span>
     </button>

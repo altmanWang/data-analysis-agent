@@ -11,6 +11,7 @@ from langchain.chat_models import init_chat_model
 from config import MODEL_CONFIG, AGENT_CONFIG, SKILLS_DIR, PROJECT_ROOT
 from storage.mysql_saver import MySQLSaver
 from db import get_connection
+from tools.ask_user import ask_user
 
 
 def _discover_skills(skills_dir: str) -> list[str]:
@@ -30,6 +31,12 @@ def _discover_skills(skills_dir: str) -> list[str]:
 
 # System Prompt（模板，{custom_agents_section} 在 build_agent 中动态替换）
 MAIN_SYSTEM_PROMPT = """你是一个通用Agent。
+
+## 与子 Agent 协作规则
+当你调用子 Agent（通过 task 工具）后，必须检查子 Agent 的返回结果：
+- 如果子 Agent 的回复中包含**向用户提出的问题**（如 "请告诉我..."、"请确认..."、"请问..."），你必须**原样转达这些问题给用户**，并等待用户回答后再继续。
+- 不要替用户回答子 Agent 的问题，也不要跳过提问环节直接给出最终结论。
+- 如果子 Agent 的回复是完整的最终结果（不含提问），则直接呈现给用户。
 
 ## 工作空间
 - 你的工作根目录是 `/`，所有上传的数据文件和生成的报告都在这里。
@@ -62,10 +69,17 @@ def _load_session_agents(session_id: str) -> list[dict]:
 
     subagents = []
     for name, description, system_prompt in rows:
+        full_prompt = (
+            "# 铁律：需要用户输入时使用提问工具\n"
+            "当需要向用户提问、确认信息时，**必须**调用提问工具，严禁在回复正文中直接提问。\n\n"
+            + system_prompt
+        )
         subagents.append({
             "name": name,
             "description": description or f"用户自定义 Agent: {name}",
-            "system_prompt": system_prompt,
+            "system_prompt": full_prompt,
+            "tools": [ask_user],
+            "interrupt_on": {"ask_user": {"allowed_decisions": ["respond"]}},
         })
 
     if subagents:
