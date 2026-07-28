@@ -20,7 +20,9 @@
         </label>
         <textarea ref="inputRef" v-model="text" @keydown.enter.exact.prevent="handleSend"
           @keydown.escape="text=''" @input="onInput"
-          :disabled="disabled" placeholder="输入分析需求，@ 引用文件..." rows="1" />
+          :disabled="disabled"
+          :placeholder="interruptQuestion ? '输入你的回答... (Enter 发送)' : '输入分析需求，@ 引用文件...'"
+          rows="1" />
         <button @click="handleSend" :disabled="!text.trim() || disabled || isLoading" class="send-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="19" x2="12" y2="5"/>
@@ -77,6 +79,7 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   isLoading: { type: Boolean, default: false },
   hasMessages: { type: Boolean, default: false },
+  interruptQuestion: { type: String, default: null },
 })
 
 const emit = defineEmits(['send'])

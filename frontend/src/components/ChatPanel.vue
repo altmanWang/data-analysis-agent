@@ -13,12 +13,6 @@
     <div class="chat-messages" ref="msgContainer" @scroll="onScroll">
       <WelcomeScreen v-if="!id && timelineItems.length === 0" />
       <MessageList :items="timelineItems" :sessionId="id" :isLoading="isLoading" />
-      <div v-if="interruptQuestion" class="answer-bar">
-        <input v-model="interruptAnswer" class="answer-input" placeholder="输入回答..." @keydown.enter="submitAnswer" autofocus />
-        <button class="answer-send" @click="submitAnswer" :disabled="!interruptAnswer.trim()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-        </button>
-      </div>
       <div ref="bottom" />
       <div v-show="showScrollBtn" class="scroll-bottom-wrapper">
         <button class="scroll-to-bottom" @click="scrollToBottom" aria-label="滚动到底部">
@@ -30,7 +24,7 @@
     </div>
 
     <ChatInput ref="chatInputRef" :sessionId="id" :disabled="sessionStatus === 'archived' || !!interruptQuestion" :isLoading="isLoading"
-      :hasMessages="hasContent" @send="onSend" />
+      :hasMessages="hasContent" :interruptQuestion="interruptQuestion" @send="handleSend" />
   </div>
 </template>
 
@@ -57,7 +51,6 @@ const timelineItems = shallowRef([])
 const isLoading = ref(false)
 const showScrollBtn = ref(false)
 const interruptQuestion = ref(null)
-const interruptAnswer = ref('')
 let abortController = null
 
 // ── 计算属性 ──
@@ -144,6 +137,14 @@ function scrollToBottom() {
 }
 
 // ── ChatInput send 事件处理 ──
+function handleSend({ content, mentions }) {
+  if (interruptQuestion.value) {
+    resumeWithAnswer(content)
+  } else {
+    doSend(content, mentions)
+  }
+}
+
 function onSend({ content, mentions }) {
   doSend(content, mentions)
 }
@@ -280,13 +281,6 @@ async function doSend(content, _mentions) {
     if (!interruptQuestion.value) isLoading.value = false
     abortController = null
   }
-}
-
-function submitAnswer() {
-  const a = interruptAnswer.value.trim()
-  if (!a) return
-  interruptAnswer.value = ''
-  resumeWithAnswer(a)
 }
 
 async function resumeWithAnswer(answer) {
