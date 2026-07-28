@@ -1,19 +1,43 @@
 <template>
   <div v-for="(item, i) in items" :key="item.id || i" :class="msgRowClass(item)">
-    <!-- 错误 -->
-    <div v-if="item.kind === 'error'" class="error-bar">❌ {{ item.content }}</div>
-
-    <!-- 思考过程 -->
-    <div v-else-if="item.kind === 'thinking'" class="thinking-block" @click="toggleExpand(item)">
-      <div class="thinking-header">
-        <span class="thinking-icon">💭</span>
-        <span>思考中...</span>
-        <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div v-if="item._expanded" class="thinking-body">{{ item.content }}</div>
+    <!-- ── 错误 ── -->
+    <div v-if="item.kind === 'error'" class="error-bar">
+      <svg class="error-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>{{ item.content }}</span>
     </div>
 
-    <!-- 工具调用卡片 -->
+    <!-- ── 思考过程（独立） ── -->
+    <template v-else-if="item.kind === 'thinking'">
+      <div class="msg-avatar assistant-avatar">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4 4-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+      <div class="msg-body">
+        <div class="thinking-block" @click="toggleExpand(item)">
+          <div class="thinking-header">
+            <!-- Brain 图标 -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="thinking-brain-icon">
+              <path d="M12 4a4 4 0 0 1 3.5 2 4 4 0 0 1 3 2.5 4 4 0 0 1 0 3 4 4 0 0 1-2 3 4 4 0 0 1-2 5.5H9.5a4 4 0 0 1-2-5.5 4 4 0 0 1-2-3 4 4 0 0 1 0-3 4 4 0 0 1 3-2.5A4 4 0 0 1 12 4Z"/>
+              <path d="M9.5 16h5"/>
+              <path d="M10 20h4"/>
+            </svg>
+            <span>思考中...</span>
+            <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div v-if="item._expanded" class="thinking-body">{{ item.content }}</div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── 工具调用卡片 ── -->
     <ToolCard
       v-else-if="item.kind === 'tool_call'"
       :item="item"
@@ -28,32 +52,60 @@
       @toggle="toggleExpand(item)"
     />
 
-    <!-- 完成标记 -->
-    <div v-else-if="item.kind === 'done'" class="done-marker">✅ 分析完成</div>
+    <!-- ── 完成标记 ── -->
+    <div v-else-if="item.kind === 'done'" class="done-marker">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="8 12 11 15 16 9"/>
+      </svg>
+      <span>分析完成</span>
+    </div>
 
-    <!-- 普通消息 -->
+    <!-- ── 普通消息（用户 / 助手） ── -->
     <template v-else>
-      <div v-if="item.role !== 'user'" class="msg-avatar">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+      <!-- 助手头像 -->
+      <div v-if="item.role !== 'user'" class="msg-avatar assistant-avatar">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4 4-7 8-7s8 3 8 7"/>
+        </svg>
       </div>
       <div class="msg-body">
         <!-- 历史思考过程 -->
         <div v-if="item.thinking" class="thinking-block" @click="toggleExpand(item)">
           <div class="thinking-header">
-            <span class="thinking-icon">💭</span>
+            <!-- Brain 图标 -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="thinking-brain-icon">
+              <path d="M12 4a4 4 0 0 1 3.5 2 4 4 0 0 1 3 2.5 4 4 0 0 1 0 3 4 4 0 0 1-2 3 4 4 0 0 1-2 5.5H9.5a4 4 0 0 1-2-5.5 4 4 0 0 1-2-3 4 4 0 0 1 0-3 4 4 0 0 1 3-2.5A4 4 0 0 1 12 4Z"/>
+              <path d="M9.5 16h5"/>
+              <path d="M10 20h4"/>
+            </svg>
             <span>思考过程</span>
-            <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </div>
           <div v-if="item._expanded" class="thinking-body">{{ item.thinking }}</div>
         </div>
         <div class="text-content" v-html="renderMd(item.content)"></div>
+        <!-- 复制按钮（仅助手消息） -->
+        <button v-if="item.role !== 'user'" class="copy-btn" @click.stop="copyContent(item.content)" title="复制内容">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
       </div>
     </template>
   </div>
 
+  <!-- ── 打字指示器 ── -->
   <div v-if="isLoading" class="message-row assistant">
-    <div class="msg-avatar">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+    <div class="msg-avatar assistant-avatar">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 4-7 8-7s8 3 8 7"/>
+      </svg>
     </div>
     <div class="msg-body">
       <div class="typing-indicator"><span></span><span></span><span></span></div>
@@ -104,6 +156,15 @@ function toggleExpand(item) {
   toggleItemExpand?.(item.id)
 }
 
+// ── 复制内容 ──
+async function copyContent(text) {
+  try {
+    await navigator.clipboard.writeText(String(text || ''))
+  } catch {
+    // 静默失败
+  }
+}
+
 // ── 工具卡片工具函数 ──
 function isTodos(item) {
   return item.name === 'write_todos' && item.result
@@ -112,9 +173,7 @@ function isTodos(item) {
 function parseTodos(item) {
   try {
     let raw = item.result
-    // 兼容 MySQL JSON 列返回对象的情况
     if (typeof raw !== 'string') raw = JSON.stringify(raw)
-    // 兼容 Python dict 格式 {'todos': [...]} 的字符串表示
     const match = raw.match(/'todos':\s*(\[[\s\S]*?\])\s*[,}]/)
     if (match) {
       const parsed = JSON.parse(match[1].replace(/'/g, '"'))
@@ -141,9 +200,7 @@ function parseTaskMd(item) {
       content = content.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"')
       return content
     }
-  } catch {
-    // 静默失败
-  }
+  } catch {}
   return null
 }
 
@@ -173,7 +230,6 @@ function fmtResult(result) {
 function taskPreviewMd(item) {
   if (!item.result) return '子代理执行完成'
   const text = String(item.result)
-  // 只取第一句话（中文到。英文到. 换行），避免与外层消息重复
   const firstLine = text.split('\n')[0].trim()
   if (firstLine.length <= 80) return firstLine
   const m = firstLine.match(/^(.+?[。.!！?？])/)
@@ -182,17 +238,19 @@ function taskPreviewMd(item) {
 </script>
 
 <style scoped>
-/* ── typing indicator ── */
+/* ═══════════════════════════════════════════════════════
+   打字指示器
+   ═══════════════════════════════════════════════════════ */
 .typing-indicator {
   display: flex;
   gap: 4px;
   padding: 4px 0;
 }
 .typing-indicator span {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--color-text-muted);
+  background: var(--color-primary);
   animation: typing 1.4s infinite both;
 }
 .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
@@ -202,16 +260,24 @@ function taskPreviewMd(item) {
   30% { opacity: 1; transform: scale(1); }
 }
 
-/* ── messages ── */
+/* ═══════════════════════════════════════════════════════
+   消息行布局
+   ═══════════════════════════════════════════════════════ */
 .message-row {
   display: flex;
   gap: var(--spacing-md);
   padding: var(--spacing-md) var(--spacing-2xl);
-  max-width: 800px;
+  max-width: var(--chat-max-width);
   margin: 0 auto;
 }
-.message-row.user { flex-direction: row-reverse; }
-.message-row.error { justify-content: center; }
+.message-row.user {
+  flex-direction: row-reverse;
+}
+.message-row.error {
+  justify-content: center;
+}
+
+/* ── 头像 ── */
 .msg-avatar {
   flex-shrink: 0;
   width: 28px;
@@ -224,57 +290,89 @@ function taskPreviewMd(item) {
   justify-content: center;
   margin-top: 2px;
 }
-.msg-body { min-width: 0; flex: 1; }
-.message-row.user .msg-body {
+
+/* ── 消息体 ── */
+.msg-body {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+.message-row.user .msg-body {
   align-items: flex-end;
 }
+
+/* ═══════════════════════════════════════════════════════
+   用户消息气泡
+   ═══════════════════════════════════════════════════════ */
 .message-row.user .text-content {
-  background: var(--color-bg-muted);
+  background: var(--user-bubble-bg);
   color: var(--color-text);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-sm) var(--spacing-lg);
-  max-width: 75%;
-  line-height: var(--line-height);
-}
-.message-row:not(.user) .text-content {
-  color: var(--color-text);
-  padding: 0;
-  line-height: 1.8;
-}
-.text-content {
+  border-radius: var(--radius-bubble);
+  padding: 10px 16px;
   font-size: var(--font-size-md);
+  line-height: var(--line-height);
+  max-width: calc(100% - 88px);
+}
+
+/* ═══════════════════════════════════════════════════════
+   助手消息文本
+   ═══════════════════════════════════════════════════════ */
+.message-row:not(.user) .text-content {
+  color: var(--color-text-secondary);
+  padding: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.text-content {
   word-break: break-word;
 }
 
-/* ── error bar ── */
+/* ═══════════════════════════════════════════════════════
+   错误条
+   ═══════════════════════════════════════════════════════ */
 .error-bar {
-  text-align: center;
-  padding: var(--spacing-sm) var(--spacing-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: #FEF2F2;
-  border: 1px solid #FECACA;
+  border-left: 3px solid var(--color-error);
   border-radius: var(--radius-md);
   color: #DC2626;
   font-size: var(--font-size-sm);
-  max-width: 400px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: var(--chat-max-width);
+}
+.error-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
-/* ── done marker ── */
+/* ═══════════════════════════════════════════════════════
+   完成标记
+   ═══════════════════════════════════════════════════════ */
 .done-marker {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   padding: var(--spacing-sm) 0;
 }
 
-/* ── thinking block ── */
+/* ═══════════════════════════════════════════════════════
+   思考块
+   ═══════════════════════════════════════════════════════ */
 .thinking-block {
   margin-bottom: var(--spacing-sm);
   border: 1px solid var(--color-border-light);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-md);
-  background: #F8FAFC;
+  background: var(--color-bg);
   overflow: hidden;
   cursor: pointer;
 }
@@ -286,14 +384,19 @@ function taskPreviewMd(item) {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
-.thinking-icon { font-size: var(--font-size-base); }
+.thinking-brain-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
 .thinking-header .tool-card-chevron {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--color-text-muted);
   transition: transform var(--transition-fast);
 }
-.thinking-header .tool-card-chevron.expanded { transform: rotate(180deg); }
+.thinking-header .tool-card-chevron.expanded {
+  transform: rotate(180deg);
+}
 .thinking-body {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-size-sm);
@@ -305,7 +408,37 @@ function taskPreviewMd(item) {
   overflow-y: auto;
 }
 
-/* ── markdown ── */
+/* ═══════════════════════════════════════════════════════
+   复制按钮
+   ═══════════════════════════════════════════════════════ */
+.copy-btn {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin-top: var(--spacing-xs);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  padding: 0;
+}
+.copy-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+.message-row.assistant:hover .copy-btn {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Markdown 内容样式
+   ═══════════════════════════════════════════════════════ */
 .text-content :deep(p) { margin-bottom: var(--spacing-md); }
 .text-content :deep(p:last-child) { margin-bottom: 0; }
 .text-content :deep(code) {
@@ -313,7 +446,7 @@ function taskPreviewMd(item) {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.9em;
-  color: var(--color-secondary);
+  color: var(--color-secondary, #3964FE);
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 }
 .text-content :deep(pre) {
@@ -362,7 +495,7 @@ function taskPreviewMd(item) {
 }
 .text-content :deep(li) { margin-bottom: var(--spacing-xs); }
 .text-content :deep(a) {
-  color: var(--color-secondary);
+  color: var(--color-primary);
   text-decoration: none;
 }
 .text-content :deep(a:hover) { text-decoration: underline; }

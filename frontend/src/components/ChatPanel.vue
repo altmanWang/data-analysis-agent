@@ -1,11 +1,21 @@
 <template>
   <div class="chat-panel" :class="{ 'has-messages': hasContent }">
-    <div v-if="sessionTitle && sessionTitle !== '新会话'" class="chat-header">{{ sessionTitle }}</div>
+    <div v-if="hasValidThread && sessionTitle" class="chat-topbar">
+      <span class="topbar-title">{{ sessionTitle }}</span>
+      <span class="topbar-mode-tag">数据分析模式</span>
+    </div>
 
-    <div class="chat-messages" ref="msgContainer">
+    <div class="chat-messages" ref="msgContainer" @scroll="onScroll">
       <WelcomeScreen v-if="!id && timelineItems.length === 0" />
       <MessageList :items="timelineItems" :sessionId="id" :isLoading="isLoading" />
       <div ref="bottom" />
+      <div v-show="showScrollBtn" class="scroll-bottom-wrapper">
+        <button class="scroll-to-bottom" @click="scrollToBottom" aria-label="滚动到底部">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4,6 8,10 12,6" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <ChatInput ref="chatInputRef" :sessionId="id" :disabled="sessionStatus === 'archived'" :isLoading="isLoading"
@@ -34,6 +44,7 @@ const sessionTitle = ref('')
 const sessionStatus = ref('active')
 const timelineItems = shallowRef([])
 const isLoading = ref(false)
+const showScrollBtn = ref(false)
 let abortController = null
 
 // ── 计算属性 ──
@@ -106,6 +117,17 @@ function autoScroll() {
   nextTick(() => bottom.value?.scrollIntoView({ behavior: 'smooth' }))
 }
 watch(() => timelineItems.value.length, () => { nextTick(() => autoScroll()) })
+
+// ── 滚动检测 ──
+function onScroll() {
+  const el = msgContainer.value
+  if (!el) return
+  showScrollBtn.value = el.scrollHeight - el.scrollTop - el.clientHeight > 150
+}
+
+function scrollToBottom() {
+  bottom.value?.scrollIntoView({ behavior: 'smooth' })
+}
 
 // ── ChatInput send 事件处理 ──
 function onSend({ content, mentions }) {
@@ -233,16 +255,74 @@ onBeforeUnmount(() => {
   height: 100vh;
   background: var(--color-bg);
   justify-content: center;
+  position: relative;
 }
 .chat-panel.has-messages { justify-content: flex-start; }
-.chat-header {
-  padding: var(--spacing-md) var(--spacing-2xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+
+/* ── top bar ── */
+.chat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 var(--spacing-2xl);
+  background: var(--color-bg);
+  border-bottom: 0.67px solid var(--color-border-light);
   flex-shrink: 0;
 }
-.has-messages .chat-header { border-bottom: 1px solid var(--color-border-light); }
+.topbar-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.topbar-mode-tag {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: var(--spacing-md);
+}
+
+/* ── messages ── */
 .chat-messages { overflow-y: auto; padding: 0; }
 .has-messages .chat-messages { flex: 1; }
+
+/* ── scroll to bottom ── */
+.scroll-bottom-wrapper {
+  position: sticky;
+  bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: flex-end;
+  padding-right: var(--spacing-lg);
+  pointer-events: none;
+  margin-top: -40px;
+}
+.scroll-to-bottom {
+  pointer-events: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0.67px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+}
+.scroll-to-bottom:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+}
 </style>

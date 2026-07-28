@@ -1,9 +1,6 @@
 <template>
-  <div class="tool-card" @click="toggleExpand">
+  <div class="tool-card" :style="{ borderLeftColor: stripeColor }" @click="toggleExpand">
     <div class="tool-card-header">
-      <svg width="10" height="10" viewBox="0 0 10 10" class="tool-icon-svg">
-        <circle cx="5" cy="5" r="4" fill="#93C5FD"/>
-      </svg>
       <span class="tool-card-name">{{ formatToolName(item.name) }}</span>
       <svg class="tool-card-chevron" :class="{ expanded: item._expanded }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
@@ -32,6 +29,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -50,26 +48,44 @@ const emit = defineEmits(['toggle'])
 function toggleExpand() {
   emit('toggle')
 }
+
+// 左侧色条 — 根据工具类型分类
+const stripeColor = computed(() => {
+  const name = (props.item?.name || '').toLowerCase()
+  const dataTools = ['load_csv', 'load_excel', 'load-data', 'read_file', 'read-file', 'ls', 'list_files']
+  const codeTools = ['execute_python', 'run_python', 'write_file', 'write-file']
+  const agentTools = ['task', 'data-analyst']
+
+  if (dataTools.includes(name)) return 'var(--color-primary)'
+  if (codeTools.includes(name)) return 'var(--color-success)'
+  if (agentTools.includes(name)) return '#8B5CF6'
+  return 'var(--color-text-muted)'
+})
 </script>
 
 <style scoped>
 .tool-card {
-  margin: 4px auto;
+  margin: 8px auto;
   border-radius: var(--radius-lg);
-  background: #F3F4F6;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-text-muted);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   overflow: hidden;
-  max-width: 800px;
+  max-width: var(--chat-max-width);
   width: calc(100% - var(--spacing-2xl) * 2);
+  transition: all var(--transition-fast);
+}
+.tool-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 .tool-card-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-}
-.tool-icon-svg {
-  flex-shrink: 0;
 }
 .tool-card-name {
   font-weight: var(--font-weight-medium);

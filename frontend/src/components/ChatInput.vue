@@ -1,21 +1,35 @@
 <template>
   <div class="chat-input" :class="{ 'has-content': hasMessages }">
-    <div class="mention-dropdown" v-if="showMention">
-      <div v-for="f in mentionFiles" :key="f" class="mention-item" @click="insertMention(f)">{{ f }}</div>
-      <div v-if="mentionFiles.length === 0" class="mention-empty">无匹配文件</div>
+    <div class="input-wrapper">
+      <div class="mention-dropdown" v-if="showMention">
+        <div v-for="f in mentionFiles" :key="f" class="mention-item" @click="insertMention(f)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mention-file-icon">
+            <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          {{ f }}
+        </div>
+        <div v-if="mentionFiles.length === 0" class="mention-empty">无匹配文件</div>
+      </div>
+      <div class="input-row">
+        <label class="upload-btn" title="上传文件">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+          <input type="file" hidden @change="onUpload" accept=".csv,.xlsx,.xls" />
+        </label>
+        <textarea ref="inputRef" v-model="text" @keydown.enter.exact.prevent="handleSend"
+          @keydown.escape="text=''" @input="onInput"
+          :disabled="disabled" placeholder="输入分析需求，@ 引用文件..." rows="1" />
+        <button @click="handleSend" :disabled="!text.trim() || disabled || isLoading" class="send-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="input-row">
-      <label class="upload-btn" title="上传文件">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <input type="file" hidden @change="onUpload" accept=".csv,.xlsx,.xls" />
-      </label>
-      <textarea ref="inputRef" v-model="text" @keydown.enter.exact.prevent="handleSend"
-        @keydown.escape="text=''" @input="onInput"
-        :disabled="disabled" placeholder="输入分析需求，@ 引用文件..." rows="1" />
-      <button @click="handleSend" :disabled="!text.trim() || disabled || isLoading" class="send-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
+    <div class="disclaimer">数据分析 Agent 可能产生错误信息，请核实重要数据</div>
   </div>
 </template>
 
@@ -108,39 +122,77 @@ defineExpose({
 <style scoped>
 .chat-input {
   padding: 0 var(--spacing-2xl) var(--spacing-2xl);
-  position: relative;
   flex-shrink: 0;
 }
 .chat-input.has-content {
   padding: var(--spacing-md) var(--spacing-2xl) var(--spacing-lg);
-  border-top: 1px solid #CBD5E1;
+  border-top: 1px solid var(--color-border);
 }
+
+.input-wrapper {
+  position: relative;
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
+}
+
+.mention-dropdown {
+  position: absolute;
+  bottom: calc(100% + var(--spacing-xs));
+  left: 0;
+  right: 0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-dropdown);
+  z-index: var(--z-dropdown);
+}
+
+.mention-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  transition: background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.mention-item:hover { background: var(--color-bg-muted); }
+.mention-item:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.mention-item:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+
+.mention-file-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.mention-empty {
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
+
 .input-row {
   display: flex;
   align-items: flex-end;
   gap: var(--spacing-sm);
-  max-width: 800px;
-  margin: 0 auto;
-  border: 1px solid #CBD5E1;
-  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-card);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-input);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .input-row:focus-within {
   border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(57, 100, 254, 0.15), var(--shadow-input);
 }
-.has-content .input-row {
-  border: 1px solid #CBD5E1;
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-xs) var(--spacing-md);
-  background: var(--color-bg-card);
-}
+
 textarea {
   flex: 1;
-  padding: var(--spacing-sm) 0;
+  padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-lg);
   border: none;
   font-size: var(--font-size-md);
   line-height: 1.6;
@@ -153,12 +205,13 @@ textarea {
 }
 textarea::placeholder { color: var(--color-text-muted); }
 textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
+
 .send-btn {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  background: var(--color-text);
+  background: var(--color-primary);
   color: var(--color-text-inverse);
   border: none;
   border-radius: 50%;
@@ -166,12 +219,19 @@ textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast), transform var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
   margin-bottom: 2px;
 }
-.send-btn:hover:not(:disabled) { background: var(--color-primary); }
-.send-btn:active:not(:disabled) { transform: scale(0.92); }
-.send-btn:disabled { background: var(--color-border); cursor: not-allowed; }
+.send-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: scale(1.05);
+}
+.send-btn:active:not(:disabled) { transform: scale(0.95); }
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .upload-btn {
   cursor: pointer;
   padding: var(--spacing-xs);
@@ -182,38 +242,20 @@ textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 }
-.upload-btn:hover { color: var(--color-text); background: var(--color-bg-muted); }
-.mention-dropdown {
-  position: absolute;
-  bottom: 100%;
-  left: var(--spacing-2xl);
-  right: var(--spacing-2xl);
-  max-width: 800px;
-  margin: 0 auto var(--spacing-xs);
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  max-height: 200px;
-  overflow-y: auto;
-  box-shadow: var(--shadow-dropdown);
-  z-index: var(--z-dropdown);
+.upload-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
 }
-.mention-item {
-  padding: var(--spacing-sm) var(--spacing-md);
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  color: var(--color-text);
-  transition: background var(--transition-fast);
-}
-.mention-item:hover { background: var(--color-bg-muted); }
-.mention-item:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-.mention-item:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
-.mention-empty {
-  padding: var(--spacing-sm) var(--spacing-md);
+
+.disclaimer {
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-base);
+  text-align: center;
+  padding-top: var(--spacing-sm);
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
 }
 </style>
