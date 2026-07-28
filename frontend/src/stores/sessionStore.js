@@ -130,5 +130,48 @@ export const useSessionStore = defineStore('session', {
         console.error('获取 session agents 失败:', e)
       }
     },
+
+    // ── Skills ──
+    skills: [],
+
+    async fetchSkills() {
+      try {
+        const res = await fetch('/api/skills')
+        if (!res.ok) throw new Error(`获取 Skills 失败: ${res.status}`)
+        this.skills = await res.json()
+      } catch (e) {
+        console.error('获取 Skills 失败:', e)
+      }
+    },
+    async uploadSkill(file) {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/skills/upload', { method: 'POST', body: form })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || `上传失败: ${res.status}`)
+      }
+      const skill = await res.json()
+      this.skills.unshift(skill)
+      return skill
+    },
+    async deleteSkill(id) {
+      const res = await fetch(`/api/skills/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`删除失败: ${res.status}`)
+      this.skills = this.skills.filter(s => s.id !== id)
+    },
+    async fetchAgentSkills(agentId) {
+      const res = await fetch(`/api/agents/${agentId}/skills`)
+      if (!res.ok) return []
+      return await res.json()
+    },
+    async setAgentSkills(agentId, skillIds) {
+      const res = await fetch(`/api/agents/${agentId}/skills`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill_ids: skillIds }),
+      })
+      if (!res.ok) throw new Error(`设置 Skills 失败: ${res.status}`)
+    },
   },
 })

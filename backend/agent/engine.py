@@ -102,12 +102,16 @@ def build_agent(session_id: str, tools: list, subagents: list):
         os.makedirs(skills_dir, exist_ok=True)
 
     # CompositeBackend：所有文件操作默认写入 sandboxes/{session_id}，skills 只读路由
-    # 确保 ls/read_file/write_file 等工具返回虚拟路径而非绝对物理路径
     sandboxes_dir = os.path.join(PROJECT_ROOT, "sandboxes", session_id)
     backend = CompositeBackend(
         default=FilesystemBackend(root_dir=sandboxes_dir, virtual_mode=True),
         routes={
             "/skills/": FilesystemBackend(root_dir=skills_dir, virtual_mode=True),
+            # 会话级激活的 skills（选 Agent 时同步）
+            "/.skills/": FilesystemBackend(
+                root_dir=os.path.join(sandboxes_dir, ".skills"),
+                virtual_mode=True,
+            ),
         },
     )
 
@@ -141,8 +145,11 @@ def build_agent(session_id: str, tools: list, subagents: list):
         max_tokens=AGENT_CONFIG["max_tokens"],
     )
 
-    # 自动发现 skills 目录下所有有效技能
+    # 自动发现全局 skills 目录 + 会话级 .skills/ 目录
     skill_paths = _discover_skills(skills_dir)
+    session_skills_dir = os.path.join(sandboxes_dir, ".skills")
+    if os.path.isdir(session_skills_dir):
+        skill_paths.append("/.skills/")
 
     # 从 MySQL 加载用户自定义 Agent + 默认 subagents
     custom_agents = _load_session_agents(session_id)

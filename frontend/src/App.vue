@@ -18,7 +18,8 @@
         <polyline points="15 18 9 12 15 6" />
       </svg>
     </button>
-    <AgentManagerModal :visible="showAgentManager" @close="showAgentManager = false" />
+    <AgentManagerModal :visible="showAgentManager" @close="showAgentManager = false" @open-skill-manager="showAgentManager = false; showSkillManager = true" />
+    <SkillManagerModal :visible="showSkillManager" @close="showSkillManager = false" />
   </div>
 </template>
 
@@ -27,18 +28,20 @@ import { ref, provide } from 'vue'
 import SessionSidebar from './components/SessionSidebar.vue'
 import WorktreePanel from './components/WorktreePanel.vue'
 import AgentManagerModal from './components/AgentManagerModal.vue'
+import SkillManagerModal from './components/SkillManagerModal.vue'
 import { useFileStore } from './stores/fileStore'
 
 export default {
-  components: { SessionSidebar, WorktreePanel, AgentManagerModal },
+  components: { SessionSidebar, WorktreePanel, AgentManagerModal, SkillManagerModal },
   data: () => ({
     panelCollapsed: false,
   }),
   setup() {
     const showAgentManager = ref(false)
+    const showSkillManager = ref(false)
     provide('showAgentManager', showAgentManager)
     provide('openAgentManager', () => { showAgentManager.value = true })
-    return { fileStore: useFileStore(), showAgentManager }
+    return { fileStore: useFileStore(), showAgentManager, showSkillManager }
   },
 }
 </script>

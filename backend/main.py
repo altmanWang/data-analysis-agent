@@ -21,6 +21,7 @@ from api.stream import router as stream_router
 from api.commands import router as command_router
 from api.threads import router as threads_router
 from api.agents import router as agents_router, session_router as session_agent_router
+from api.skills import router as skills_router, agent_skill_router
 from agent.pool import agent_pool
 
 
@@ -58,6 +59,8 @@ app.include_router(stream_router)
 app.include_router(command_router)
 app.include_router(agents_router)
 app.include_router(session_agent_router)
+app.include_router(skills_router)
+app.include_router(agent_skill_router)
 
 
 @app.get("/health")

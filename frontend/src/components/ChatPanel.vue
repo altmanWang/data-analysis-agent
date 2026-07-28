@@ -224,16 +224,24 @@ async function doSend(content, _mentions) {
             id: data.id || `${Date.now()}-tool`, kind: 'tool_call', role: 'tool',
             name: data.name, status: 'done', result: data.result, input: data.input || '', _expanded: false,
           }]
-          // task（子代理）结束后另起一条消息
+          // task（子代理）结束后另起一条消息 + 折叠工具卡片
           if (data.name === 'task') {
             currentMsgId = null
             currentText = ''
+            // 折叠所有已展开的工具卡片，只保留子代理结果
+            timelineItems.value = timelineItems.value.map(i =>
+              i.kind === 'tool_call' && i.name !== 'task' ? { ...i, _expanded: false } : i
+            )
           }
         } else if (data.type === 'done') {
           if (currentMsgId) {
             timelineItems.value = timelineItems.value.map(i =>
               i.id === currentMsgId ? { ...i, done: true } : i)
           }
+          // 折叠所有工具卡片，只保留最终结果
+          timelineItems.value = timelineItems.value.map(i =>
+            i.kind === 'tool_call' ? { ...i, _expanded: false } : i
+          )
           timelineItems.value = [...timelineItems.value, {
             id: `${Date.now()}-done`, kind: 'done',
           }]
@@ -304,10 +312,19 @@ async function resumeWithAnswer(answer) {
           currentText += data.content; timelineItems.value = timelineItems.value.map(i => i.id === currentMsgId ? { ...i, content: currentText } : i)
         } else if (data.type === 'tool') {
           timelineItems.value = [...timelineItems.value, { id: data.id || `${Date.now()}-tool`, kind: 'tool_call', role: 'tool', name: data.name, status: 'done', result: data.result, input: data.input || '', _expanded: false }]
-          if (data.name === 'task') { currentMsgId = null; currentText = '' }
+          if (data.name === 'task') {
+            currentMsgId = null; currentText = ''
+            timelineItems.value = timelineItems.value.map(i =>
+              i.kind === 'tool_call' && i.name !== 'task' ? { ...i, _expanded: false } : i
+            )
+          }
         } else if (data.type === 'done') {
           if (currentMsgId) timelineItems.value = timelineItems.value.map(i => i.id === currentMsgId ? { ...i, done: true } : i)
+          timelineItems.value = timelineItems.value.map(i =>
+            i.kind === 'tool_call' ? { ...i, _expanded: false } : i
+          )
           useFileStore().fetchTree(tid)
+          interruptQuestion.value = null
         } else if (data.type === 'interrupt') {
           interruptQuestion.value = data.question || ''
           timelineItems.value = [...timelineItems.value, { id: `${Date.now()}-ask`, kind: 'interrupt', role: 'assistant', content: data.question || '', done: true }]

@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from services.agent_service import agent_service
+from services.worktree_manager import sync_agent_skills_to_worktree, clear_session_skills
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -93,6 +94,12 @@ async def get_session_agents(session_id: str):
 async def toggle_session_agent(session_id: str, body: SelectAgentRequest):
     """切换 session 的 Agent（已选则移除，未选则添加）"""
     result = agent_service.toggle_session_agent(session_id, body.agent_id)
+    # 同步 Skills 到工作目录
+    agent_ids = [a["id"] for a in result.get("agents", [])]
+    if agent_ids:
+        sync_agent_skills_to_worktree(session_id, agent_ids)
+    else:
+        clear_session_skills(session_id)
     return {"session_id": session_id, "added": result["added"], "agents": result["agents"]}
 
 
@@ -100,4 +107,5 @@ async def toggle_session_agent(session_id: str, body: SelectAgentRequest):
 async def clear_session_agents(session_id: str):
     """清空 session 的所有 Agent 选择"""
     agent_service.remove_session_agents(session_id)
+    clear_session_skills(session_id)
     return {"message": "已清空"}

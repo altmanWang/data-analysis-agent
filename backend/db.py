@@ -161,6 +161,60 @@ def init_db():
                     INDEX idx_agent_id (agent_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
+            # 迁移 session_agents 旧唯一键
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS "
+                    "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='session_agents' AND CONSTRAINT_NAME='uk_session'",
+                    (DB_NAME,),
+                )
+                if cur.fetchone()[0] > 0:
+                    cur.execute("ALTER TABLE session_agents DROP INDEX uk_session")
+            except Exception:
+                pass
+            conn.commit()
+
+        # 创建 skills 表 — 技能包元数据（对应 skills/ 目录）
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS skills (
+                    id              INT AUTO_INCREMENT PRIMARY KEY,
+                    name            VARCHAR(100) NOT NULL COMMENT '技能名称（目录名）',
+                    display_name    VARCHAR(200) DEFAULT '' COMMENT '展示名称',
+                    description     VARCHAR(500) DEFAULT '' COMMENT '技能描述',
+                    zip_data        LONGBLOB COMMENT '原始 zip 包',
+                    user_id         VARCHAR(100) DEFAULT '' COMMENT '上传者',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uk_name (name),
+                    INDEX idx_user_id (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """)
+            # 迁移：旧表无 zip_data 列则新增
+            try:
+                cur.execute(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='skills' AND COLUMN_NAME='zip_data'",
+                    (DB_NAME,),
+                )
+                if cur.fetchone()[0] == 0:
+                    cur.execute("ALTER TABLE skills ADD COLUMN zip_data LONGBLOB COMMENT '原始 zip 包'")
+            except Exception:
+                pass
+            conn.commit()
+
+        # 创建 agent_skills 表 — Agent 与 Skill 的多对多关联
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agent_skills (
+                    id              INT AUTO_INCREMENT PRIMARY KEY,
+                    agent_id        INT NOT NULL COMMENT 'Agent ID',
+                    skill_id        INT NOT NULL COMMENT 'Skill ID',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uk_agent_skill (agent_id, skill_id),
+                    INDEX idx_agent_id (agent_id),
+                    INDEX idx_skill_id (skill_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """)
             conn.commit()
     finally:
         conn.close()

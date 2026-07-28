@@ -22,6 +22,23 @@
             placeholder="描述 Agent 的角色、职责和工作流程..."
             maxlength="50000" />
 
+          <!-- Skills 多选 -->
+          <label class="form-label">关联 Skills</label>
+          <div class="skills-list" v-if="store.skills.length > 0">
+            <label v-for="skill in store.skills" :key="skill.id" class="skill-row">
+              <span class="skill-checkbox" :class="{ checked: formSkillIds.includes(skill.id) }">
+                <svg v-if="formSkillIds.includes(skill.id)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              <input type="checkbox" :value="skill.id" v-model="formSkillIds" class="sr-only" />
+              <span class="skill-name">{{ skill.display_name || skill.name }}</span>
+              <span class="skill-desc">{{ skill.description || '' }}</span>
+            </label>
+          </div>
+          <div class="skills-empty" v-else>暂无可用 Skill</div>
+          <a class="skill-upload-link" @click.prevent="$emit('open-skill-manager')">+ 上传新 Skill...</a>
+
           <div class="form-actions">
             <button class="btn btn-primary" @click="onSave" :disabled="!formName.trim() || !formPrompt.trim()">
               {{ editingId ? '保存修改' : '创建 Agent' }}
@@ -55,47 +72,60 @@ import { ref, watch } from 'vue'
 import { useSessionStore } from '../stores/sessionStore'
 
 const props = defineProps({ visible: { type: Boolean, default: false } })
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'open-skill-manager'])
 
 const store = useSessionStore()
 
 // 打开弹窗时刷新 agent 列表
 watch(() => props.visible, (v) => {
-  if (v) store.fetchAgents()
+  if (v) {
+    store.fetchAgents()
+    store.fetchSkills()
+  }
 })
 
 const formName = ref('')
 const formDesc = ref('')
 const formPrompt = ref('')
+const formSkillIds = ref([])
 const editingId = ref(null)
 
 function resetForm() {
   formName.value = ''
   formDesc.value = ''
   formPrompt.value = ''
+  formSkillIds.value = []
   editingId.value = null
 }
 
-function editAgent(agent) {
+async function editAgent(agent) {
   formName.value = agent.name
   formDesc.value = agent.description || ''
   formPrompt.value = agent.system_prompt
   editingId.value = agent.id
+  try {
+    const skills = await store.fetchAgentSkills(agent.id)
+    formSkillIds.value = (skills || []).map(s => s.id)
+  } catch (e) {
+    formSkillIds.value = []
+  }
 }
 
 async function onSave() {
   if (!formName.value.trim() || !formPrompt.value.trim()) return
   try {
+    let agentId = editingId.value
     if (editingId.value) {
-      // 编辑模式：通过 PUT 更新
       await fetch(`/api/agents/${editingId.value}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: formName.value.trim(), description: formDesc.value.trim(), system_prompt: formPrompt.value.trim() }),
       })
     } else {
-      await store.createAgent(formName.value.trim(), formDesc.value.trim(), formPrompt.value.trim())
+      const agent = await store.createAgent(formName.value.trim(), formDesc.value.trim(), formPrompt.value.trim())
+      agentId = agent.id
     }
+    await store.setAgentSkills(agentId, formSkillIds.value)
     resetForm()
     await store.fetchAgents()
   } catch (e) {
@@ -280,5 +310,91 @@ async function onDelete(id) {
   color: var(--color-text-muted);
   padding: var(--spacing-2xl);
   font-size: var(--font-size-base);
+}
+
+/* ───── Skills 多选 ───── */
+.skills-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-xs);
+}
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.skill-row:hover {
+  background: var(--color-bg-hover);
+}
+.skill-row + .skill-row {
+  border-top: 1px solid var(--color-border-light);
+}
+.skill-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  color: transparent;
+}
+.skill-checkbox.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skill-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+.skill-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.skills-empty {
+  padding: var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-xs);
+}
+.skill-upload-link {
+  display: inline-block;
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.skill-upload-link:hover {
+  text-decoration: underline;
 }
 </style>

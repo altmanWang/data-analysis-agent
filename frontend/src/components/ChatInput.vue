@@ -16,7 +16,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
           </svg>
-          <input type="file" hidden @change="onUpload" accept=".csv,.xlsx,.xls" />
+          <input type="file" class="sr-only" @change="onUpload" accept=".csv,.xlsx,.xls" />
         </label>
         <textarea ref="inputRef" v-model="text" @keydown.enter.exact.prevent="handleSend"
           @keydown.escape="text=''" @input="onInput"
@@ -448,5 +448,9 @@ textarea:disabled { color: var(--color-text-muted); cursor: not-allowed; }
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-dropdown) - 1);
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 </style>
