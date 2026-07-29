@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepSeek 风格对话 Demo — 数据分析 Agent</title>
+<style>
+/* ============ Reset ============ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ============ Design Tokens ============ */
+:root {
+  --color-primary: #3964FE;
+  --color-primary-hover: #2551E6;
+  --color-primary-light: #EDF3FE;
+  --color-primary-subtle: #F5F7FF;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-bg: #FFFFFF;
+  --color-bg-sidebar: #F9FAFB;
+  --color-bg-card: #FFFFFF;
+  --color-bg-muted: #F3F4F6;
+  --color-bg-hover: #F0F2F5;
+  --color-bg-active: #EDF3FE;
+  --color-text: #0F1115;
+  --color-text-secondary: #61666B;
+  --color-text-muted: #81858C;
+  --color-text-inverse: #FFFFFF;
+  --color-border: rgba(0,0,0,.1);
+  --color-border-light: rgba(0,0,0,.04);
+  --user-bubble-bg: #EDF3FE;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 14px; --fs-md: 16px;
+  --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --lh: 1.6; --lh-relaxed: 1.7;
+  --sp-xs: 4px; --sp-sm: 8px; --sp-md: 12px; --sp-lg: 16px; --sp-xl: 20px; --sp-2xl: 24px;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-bubble: 22px; --r-input: 24px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-input: 0 4px 10px rgba(0,0,0,.02),0 2px 4px rgba(0,0,0,.04);
+  --chat-max: 768px;
+  --topbar-h: 48px;
+}
+
+html { font-family: var(--font-family); font-size: var(--fs-base); color: var(--color-text); background: var(--color-bg); -webkit-font-smoothing: antialiased; }
+
+/* ============ Layout ============ */
+body { height: 100vh; display: flex; overflow: hidden; }
+
+/* Sidebar */
+.sidebar {
+  width: 260px; min-width: 260px; height: 100vh;
+  background: var(--color-bg-sidebar);
+  border-right: .67px solid var(--color-border-light);
+  display: flex; flex-direction: column;
+  padding: var(--sp-md);
+}
+.sidebar-logo { font-size: var(--fs-base); font-weight: var(--fw-semibold); color: var(--color-primary); margin-bottom: var(--sp-lg); }
+.sidebar-new {
+  display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
+  border: .67px solid var(--color-border); border-radius: var(--r-md);
+  cursor: pointer; font-size: var(--fs-base); color: var(--color-text);
+  margin-bottom: var(--sp-md); transition: all .15s ease;
+}
+.sidebar-new:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.sidebar-group { font-size: var(--fs-xs); color: var(--color-text-muted); font-weight: var(--fw-medium); padding: 2px 10px; margin-top: var(--sp-md); }
+.sidebar-item {
+  padding: 9px 6px 9px 10px; font-size: var(--fs-base); cursor: pointer;
+  color: var(--color-text); border-radius: var(--r-sm); transition: background .15s ease;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-item:hover { background: var(--color-bg-hover); }
+.sidebar-item.active { color: var(--color-primary); background: var(--color-bg-active); }
+
+/* Chat Panel */
+.chat-panel { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+
+/* Topbar */
+.chat-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: var(--topbar-h); padding: 0 var(--sp-2xl);
+  border-bottom: .67px solid var(--color-border-light); flex-shrink: 0;
+}
+.topbar-title { font-size: var(--fs-base); font-weight: var(--fw-medium); color: var(--color-text); }
+.topbar-tag {
+  font-size: var(--fs-xs); color: var(--color-text-secondary);
+  background: var(--color-bg-muted); padding: 2px 8px; border-radius: var(--r-sm);
+}
+
+/* Messages */
+.chat-messages { flex: 1; overflow-y: auto; padding: var(--sp-md) 0; }
+
+.message-row {
+  display: flex; gap: var(--sp-md); padding: var(--sp-md) var(--sp-2xl);
+  max-width: var(--chat-max); margin: 0 auto;
+}
+.message-row.user { flex-direction: row-reverse; }
+.message-row.assistant { }
+.message-row.error { justify-content: center; }
+.message-row.done { justify-content: center; }
+
+.msg-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  background: var(--color-primary); color: var(--color-text-inverse);
+  display: flex; align-items: center; justify-content: center; margin-top: 2px;
+}
+.msg-body { min-width: 0; flex: 1; }
+
+/* User bubble */
+.message-row.user .msg-body { display: flex; flex-direction: column; align-items: flex-end; }
+.message-row.user .text-content {
+  background: var(--user-bubble-bg); border-radius: var(--r-bubble);
+  padding: 10px 16px; font-size: var(--fs-md); line-height: var(--lh);
+  max-width: calc(100% - 88px); color: var(--color-text);
+}
+
+/* AI text */
+.message-row.assistant .text-content {
+  font-size: var(--fs-base); line-height: var(--lh-relaxed);
+  color: var(--color-text-secondary); padding: 0;
+}
+
+/* ============ Markdown Rendering ============ */
+.text-content p { margin-bottom: var(--sp-md); }
+.text-content p:last-child { margin-bottom: 0; }
+.text-content code {
+  background: var(--color-bg-muted); padding: 2px 6px; border-radius: var(--r-sm);
+  font-size: .9em; color: var(--color-primary);
+  font-family: 'JetBrains Mono','Fira Code','SF Mono',monospace;
+}
+.text-content pre {
+  background: #1a1a2e; color: #e2e8f0; padding: var(--sp-lg);
+  border-radius: var(--r-lg); overflow-x: auto; margin: var(--sp-md) 0;
+  font-size: var(--fs-base); line-height: 1.5;
+}
+.text-content pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+.text-content table { border-collapse: collapse; width: 100%; margin: var(--sp-md) 0; font-size: var(--fs-base); }
+.text-content th, .text-content td { border: 1px solid var(--color-border); padding: var(--sp-sm) var(--sp-md); text-align: left; }
+.text-content th { background: var(--color-bg-muted); font-weight: var(--fw-semibold); color: var(--color-text-secondary); }
+.text-content tr:hover td { background: var(--color-bg-muted); }
+.text-content blockquote {
+  border-left: 3px solid var(--color-border); padding-left: var(--sp-md);
+  color: var(--color-text-secondary); margin: var(--sp-md) 0;
+}
+.text-content ul, .text-content ol { padding-left: var(--sp-xl); margin-bottom: var(--sp-md); }
+.text-content li { margin-bottom: var(--sp-xs); }
+.text-content a { color: var(--color-primary); text-decoration: none; }
+.text-content a:hover { text-decoration: underline; }
+.text-content h1, .text-content h2, .text-content h3 {
+  color: var(--color-text); margin-top: var(--sp-xl); margin-bottom: var(--sp-sm);
+  font-weight: var(--fw-semibold);
+}
+.text-content hr { border: none; border-top: 1px solid var(--color-border-light); margin: var(--sp-xl) 0; }
+.text-content img { max-width: 100%; max-height: 360px; border-radius: var(--r-md); border: 1px solid var(--color-border-light); }
+.text-content strong { color: var(--color-text); }
+
+/* ============ Thinking Block ============ */
+.thinking-block {
+  margin-bottom: var(--sp-sm); border: 1px solid var(--color-border-light);
+  border-left: 3px solid var(--color-primary); border-radius: var(--r-md);
+  background: var(--color-bg); overflow: hidden; cursor: pointer;
+}
+.thinking-header { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-xs) var(--sp-md); font-size: var(--fs-sm); color: var(--color-text-muted); }
+.thinking-body { padding: var(--sp-sm) var(--sp-md); font-size: var(--fs-sm); color: var(--color-text-secondary); white-space: pre-wrap; line-height: 1.6; border-top: 1px solid var(--color-border-light); max-height: 300px; overflow-y: auto; }
+
+/* ============ Tool Card ============ */
+.tool-card {
+  margin: 4px auto; background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm); cursor: pointer; overflow: hidden;
+  max-width: var(--chat-max); width: calc(100% - var(--sp-2xl) * 2);
+}
+.tool-card-header { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); }
+.tool-card-name { font-weight: var(--fw-medium); color: var(--color-text-secondary); font-size: var(--fs-sm); flex: 1; }
+.tool-card-body { padding: 0 var(--sp-md) var(--sp-md); border-top: 1px solid var(--color-border-light); }
+.tool-card-body pre { font-size: var(--fs-xs); background: #FAFBFC; padding: var(--sp-sm); border-radius: var(--r-sm); overflow-x: auto; max-height: 200px; white-space: pre-wrap; color: var(--color-text-secondary); font-family: 'JetBrains Mono',monospace; }
+
+/* ============ Interrupt ============ */
+.interrupt-msg {
+  border-left: 3px solid var(--color-primary); background: var(--color-primary-subtle);
+  border-radius: 0 var(--r-md) var(--r-md) 0; padding: var(--sp-md);
+  font-size: var(--fs-base); line-height: var(--lh-relaxed); color: var(--color-text);
+}
+.interrupt-msg p { margin-bottom: var(--sp-xs); }
+.interrupt-msg p:last-child { margin-bottom: 0; }
+
+/* ============ Done / Error ============ */
+.done-marker { text-align: center; color: var(--color-text-muted); font-size: var(--fs-sm); padding: var(--sp-sm) 0; }
+.error-bar {
+  text-align: center; padding: var(--sp-sm) var(--sp-lg); background: #FEF2F2;
+  border: 1px solid #FECACA; border-radius: var(--r-md); color: #DC2626;
+  font-size: var(--fs-sm); max-width: 400px;
+}
+
+/* ============ Input ============ */
+.chat-input {
+  padding: 0 var(--sp-2xl) var(--sp-2xl); position: relative; flex-shrink: 0;
+}
+.input-row {
+  display: flex; align-items: flex-end; gap: var(--sp-sm);
+  max-width: var(--chat-max); margin: 0 auto;
+  border: 1px solid var(--color-border); border-radius: var(--r-input);
+  padding: var(--sp-sm) var(--sp-md); background: var(--color-bg-card);
+  box-shadow: var(--shadow-input);
+}
+textarea {
+  flex: 1; padding: var(--sp-md) var(--sp-md) 0 var(--sp-lg);
+  border: none; font-size: var(--fs-md); line-height: var(--lh);
+  resize: none; outline: none; font-family: inherit; color: var(--color-text);
+  background: transparent; max-height: 120px;
+}
+textarea::placeholder { color: var(--color-text-muted); }
+.send-btn {
+  width: 36px; height: 36px; padding: 0; background: var(--color-primary);
+  color: var(--color-text-inverse); border: none; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-bottom: 2px;
+}
+
+/* ============ Typing ============ */
+.typing-indicator { display: flex; gap: 4px; padding: 4px 0; }
+.typing-indicator span { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); animation: typing 1.4s infinite both; }
+.typing-indicator span:nth-child(2) { animation-delay: .2s; }
+.typing-indicator span:nth-child(3) { animation-delay: .4s; }
+@keyframes typing { 0%,60%,100% { opacity: .3; transform: scale(.8); } 30% { opacity: 1; transform: scale(1); } }
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ============ Answer Bar ============ */
+.answer-bar { display: flex; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-2xl); max-width: var(--chat-max); margin: 0 auto; }
+.answer-input { flex: 1; padding: var(--sp-sm) var(--sp-md); border: 1px solid var(--color-primary); border-radius: var(--r-input); font-size: var(--fs-base); font-family: inherit; outline: none; }
+.answer-send { width: 36px; height: 36px; background: var(--color-primary); color: white; border: none; border-radius: 50%; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ========== Sidebar ========== -->
+<aside class="sidebar">
+  <div class="sidebar-logo">📊 Data Analysis</div>
+  <div class="sidebar-new">+ 开启新会话</div>
+  <div class="sidebar-group">今天</div>
+  <div class="sidebar-item active">彤程新材技术分析</div>
+  <div class="sidebar-item">FAQ 问答机器人测试</div>
+  <div class="sidebar-group">7 天内</div>
+  <div class="sidebar-item">Chatbot 测试分解</div>
+  <div class="sidebar-item">销售数据分析</div>
+  <div class="sidebar-group">30 天内</div>
+  <div class="sidebar-item">用户行为分析</div>
+  <div class="sidebar-item">Q2 汇总报告</div>
+</aside>
+
+<!-- ========== Chat Panel ========== -->
+<div class="chat-panel">
+  <!-- Topbar -->
+  <div class="chat-topbar">
+    <span class="topbar-title">彤程新材 (sh603650) 技术分析</span>
+    <span class="topbar-tag">数据分析模式</span>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages">
+
+    <!-- User -->
+    <div class="message-row user">
+      <div class="msg-body">
+        <div class="text-content">分析 彤程新材 (sh603650) 近三个月的走势，给出技术分析报告</div>
+      </div>
+    </div>
+
+    <!-- Thinking -->
+    <div class="message-row assistant">
+      <div class="msg-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+      </div>
+      <div class="msg-body">
+        <div class="thinking-block">
+          <div class="thinking-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4a4 4 0 0 1 3.5 2 4 4 0 0 1 3 2.5 4 4 0 0 1 0 3 4 4 0 0 1-2 3 4 4 0 0 1-2 5.5H9.5a4 4 0 0 1-2-5.5 4 4 0 0 1-2-3 4 4 0 0 1 0-3 4 4 0 0 1 3-2.5A4 4 0 0 1 12 4Z"/><path d="M9.5 16h5"/><path d="M10 20h4"/></svg>
+            <span>已思考（用时 3 秒）</span>
+          </div>
+          <div class="thinking-body">需要加载 CSV 数据文件，分析 K 线和技术指标...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tool cards -->
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-card-name">📂 读取 CSV</span>
+      </div>
+      <div class="tool-card-body">
+        <pre>sh603650_2026-04-08_2026-06-26.csv — 61 rows, 15 columns</pre>
+      </div>
+    </div>
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-card-name">📂 读取 CSV (offset 20)</span>
+      </div>
+      <div class="tool-card-body">
+        <pre>rows 20-39 loaded</pre>
+      </div>
+    </div>
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <span class="tool-card-name">📂 读取 CSV (offset 40)</span>
+      </div>
+      <div class="tool-card-body">
+        <pre>rows 40-60 loaded</pre>
+      </div>
+    </div>
+
+    <!-- AI Response with Markdown -->
+    <div class="message-row assistant">
+      <div class="msg-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+      </div>
+      <div class="msg-body">
+        <div class="text-content">
+
+<p>现在我已掌握全部数据，以下是 <strong>炒股大师</strong> 对 <strong>彤程新材 (sh603650)</strong> 的完整技术分析报告。</p>
+
+<h2>📊 彤程新材 (sh603650) 炒股大师分析报告</h2>
+<p><strong>数据区间:</strong> 2026-04-08 至 2026-07-07（61个交易日）<br>
+<strong>起始收盘:</strong> 51.63 → <strong>最新收盘:</strong> 84.87<br>
+<strong>期间涨幅:</strong> <code>+64.38%</code>（惊人涨幅）</p>
+
+<h3>一、全景走势回顾：九段行情</h3>
+<p>整个区间可分为清晰的 <strong>9个阶段</strong>：</p>
+
+<table>
+<tr><th>阶段</th><th>时间</th><th>价格区间</th><th>特征</th></tr>
+<tr><td>① 筑底期</td><td>04/08~04/13</td><td>49.86→51.04</td><td>窄幅震荡，量能萎缩</td></tr>
+<tr><td>② 第一波拉升</td><td>04/14~04/23</td><td>51.04→55.17</td><td>温和放量上攻，+8.1%</td></tr>
+<tr><td>③ 回调洗盘</td><td>04/24~04/30</td><td>55.17→53.46</td><td>缩量回调</td></tr>
+<tr><td>④ 主升浪启动</td><td>05/06~05/20</td><td>53.46→62.38</td><td>量价齐升，+16.7%</td></tr>
+<tr><td>⑤ 暴力回调</td><td>05/21~06/01</td><td>62.38→50.89</td><td>-18.4%暴跌</td></tr>
+<tr><td>⑥ V型反转</td><td>06/02~06/11</td><td>50.89→64.30</td><td>+26.4%急速反弹</td></tr>
+<tr><td>⑦ 剧烈震荡</td><td>06/12~06/18</td><td>59.43→67.82</td><td>洗盘换手</td></tr>
+<tr><td>⑧ 加速主升浪</td><td>06/22~07/02</td><td>67.82→97.71</td><td>涨幅+44%</td></tr>
+<tr><td>⑨ 高位回调</td><td>07/03~07/07</td><td>97.71→84.87</td><td>-13.1%回调</td></tr>
+</table>
+
+<h3>二、核心技术指标分析</h3>
+
+<h4>均线系统（MA）</h4>
+<table>
+<tr><th>均线</th><th>最新值</th><th>解读</th></tr>
+<tr><td>MA5</td><td>89.57</td><td>短期趋势向下 ⚠️</td></tr>
+<tr><td>MA10</td><td>88.13</td><td>短期趋势向下 ⚠️</td></tr>
+<tr><td>MA20</td><td>76.00</td><td>中期趋势向上 ✅</td></tr>
+</table>
+
+<blockquote>
+<p>✅ 多头排列格局仍在：MA20(76.00) &lt; MA10(88.13) &lt; MA5(89.57)，中期趋势完好</p>
+<p>⚠️ 短期破位：最新价84.87已跌破MA5和MA10，短线偏弱</p>
+<p>🔑 <strong>关键支撑：MA20（76.00）为中期生命线</strong></p>
+</blockquote>
+
+<h3>三、关键价位研判</h3>
+<ul>
+  <li><strong>压力位①</strong>：97.98（6/30收盘价，前高）</li>
+  <li><strong>压力位②</strong>：102.28（历史最高点）</li>
+  <li><strong>支撑位①</strong>：83.69（7/6最低收盘，短线支撑）</li>
+  <li><strong>支撑位②</strong>：76.00（MA20，中期生命线）</li>
+  <li><strong>支撑位③</strong>：62~64（前期平台，极限支撑）</li>
+</ul>
+
+<h3>四、炒股大师综合研判</h3>
+
+<h4>✅ 看多信号</h4>
+<ul>
+  <li>中期趋势完好：MA20仍在上行，股价远高于MA20</li>
+  <li>缩量回调：7/3以来回调缩量，非主力出货特征</li>
+  <li>V型反转+主升浪：主力资金深度介入，趋势强势</li>
+</ul>
+
+<h4>⚠️ 风险提示</h4>
+<ul>
+  <li>短期破位：已跌破MA5和MA10，短线动能减弱</li>
+  <li>涨幅过大：区间最大涨幅超100%，获利盘巨大</li>
+  <li>高位震荡幅度大：日波动达8~10%，操作难度极高</li>
+</ul>
+
+<h4>🎯 操作策略建议</h4>
+<table>
+<tr><th>策略</th><th>说明</th></tr>
+<tr><td><strong>短线</strong></td><td>静待企稳信号，关注量比&lt;0.7极度缩量和MA20（76附近）支撑</td></tr>
+<tr><td><strong>中线</strong></td><td>若回踩MA20不破，是较好中线介入点，止损设在70元下方</td></tr>
+<tr><td><strong>止盈</strong></td><td>前高97~102区域是强压力，冲高可分批止盈</td></tr>
+</table>
+
+<hr>
+
+<h3>📌 核心结论</h3>
+<p>彤程新材近期走出强势主升浪行情，目前处于暴涨后的正常回调阶段。中长线趋势依然健康（MA20稳定上行），但短线风险较大，不建议追高。<strong>关键观察MA20（约76元）</strong>支撑有效性。</p>
+
+<p style="color:var(--color-text-muted); font-size:var(--fs-xs); margin-top:var(--sp-lg);">
+⚠️ 免责声明：以上分析仅基于CSV历史K线数据的客观技术分析，不构成投资建议。股市有风险，投资需谨慎。
+</p>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Interrupt Question -->
+    <div class="message-row assistant">
+      <div class="msg-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div class="msg-body">
+        <div class="interrupt-msg">
+          <p>1. <strong>Chatbot 的实现方式</strong>：这个 Chatbot 是基于 LLM（如 GPT 系列）的大语言模型机器人，还是基于检索式/规则引擎（如 FAQ 知识库匹配）的机器人？或者是混合模式？这会影响对话质量、知识库匹配等测试的重点。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Answer Bar -->
+    <div class="answer-bar">
+      <input class="answer-input" placeholder="输入你的回答... (Enter 发送)" />
+      <button class="answer-send">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Done -->
+    <div class="message-row done">
+      <div class="done-marker">✅ 分析完成</div>
+    </div>
+
+  </div>
+
+  <!-- Input -->
+  <div class="chat-input">
+    <div class="input-row">
+      <textarea placeholder="输入分析需求，@ 引用文件..." rows="1">分析 彤程新材 (sh603650) 近三个月走势</textarea>
+      <button class="send-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
