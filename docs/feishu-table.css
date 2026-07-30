@@ -1,0 +1,1538 @@
+/* ==========================================================================
+ * 飞书多维表格 (Feishu Bitable) 视觉风格 CSS
+ * 基于飞书实际设计 Token，覆盖表格容器、工具栏、左侧栏、
+ * 表头/单元格、表单、弹窗等完整样式体系。
+ * ========================================================================== */
+
+/* --------------------------------------------------------------------------
+ * 1. CSS 设计 Token (CSS 变量)
+ * 飞书官方色彩体系，所有组件共用
+ * -------------------------------------------------------------------------- */
+:root {
+  /* --- 基础中性色 (Neutral) --- */
+  --feishu-N00: #ffffff;
+  --feishu-N50: #f5f6f7;
+  --feishu-N100: #f2f3f5;
+  --feishu-N200: #eff0f1;
+  --feishu-N300: #dee0e3;
+  --feishu-N350: #d0d3d6;
+  --feishu-N400: #bbbfc4;
+  --feishu-N500: #8f959e;
+  --feishu-N600: #646a73;
+  --feishu-N700: #373c43;
+  --feishu-N800: #2b2f36;
+  --feishu-N900: #1f2329;
+
+  /* --- 品牌色 (Brand) --- */
+  --feishu-B500: #336df4;
+  --feishu-B600: #1456f0;
+
+  /* --- 语义色 — 背景 --- */
+  --feishu-bg-body: #ffffff;
+  --feishu-bg-base: #f2f3f5;
+  --feishu-bg-float: #ffffff;
+
+  /* --- 语义色 — 文字 --- */
+  --feishu-text-title: #1f2329;
+  --feishu-text-caption: #646a73;
+  --feishu-text-placeholder: #8f959e;
+  --feishu-text-disabled: #bbbfc4;
+
+  /* --- 交互态填充 --- */
+  --feishu-fill-hover: rgba(31, 35, 41, 0.08);
+  --feishu-fill-pressed: rgba(31, 35, 41, 0.12);
+  --feishu-fill-active: rgba(20, 86, 240, 0.15);
+  --feishu-fill-selected: rgba(20, 86, 240, 0.1);
+
+  /* --- 阴影 --- */
+  --feishu-shadow-sm-down: 0px 2px 4px 0px rgba(31, 35, 41, 0.12);
+  --feishu-shadow-md-down: 0px 4px 8px 0px rgba(31, 35, 41, 0.1);
+  --feishu-shadow-lg-down: 0px 6px 24px 0px rgba(31, 35, 41, 0.08);
+  --feishu-shadow-s1-down: 0px 1px 2px -2px rgba(31, 35, 41, 0.02),
+    0px 2px 4px 0px rgba(31, 35, 41, 0.02);
+
+  /* --- 分割线/边框 --- */
+  --feishu-line-divider: rgba(31, 35, 41, 0.15);
+  --feishu-line-module: rgba(31, 35, 41, 0.15);
+  --feishu-line-border-card: #dee0e3;
+  --feishu-line-border-component: #d0d3d6;
+
+  /* --- 圆角 --- */
+  --feishu-radius-card: 8px;
+  --feishu-radius-component: 4px;
+  --feishu-radius-full: 9999px;
+
+  /* --- 字体系统 --- */
+  --feishu-font-family: LarkHackSafariFont, LarkEmojiFont, LarkChineseQuote,
+    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Tahoma,
+    "PingFang SC", "Microsoft Yahei", Arial, "Hiragino Sans GB", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+
+  --feishu-font-size-xs: 11px;
+  --feishu-font-size-sm: 12px;
+  --feishu-font-size-base: 13px;
+  --feishu-font-size-md: 14px;
+  --feishu-font-size-lg: 16px;
+  --feishu-font-size-xl: 18px;
+
+  /* --- 间距 --- */
+  --feishu-space-xs: 4px;
+  --feishu-space-sm: 8px;
+  --feishu-space-md: 12px;
+  --feishu-space-lg: 16px;
+  --feishu-space-xl: 24px;
+
+  /* --- 尺寸 --- */
+  --feishu-header-height: 48px;
+  --feishu-sidebar-width: 240px;
+  --feishu-toolbar-height: 40px;
+  --feishu-table-header-row-height: 44px;
+  --feishu-table-data-row-height: 36px;
+  --feishu-checkbox-size: 16px;
+
+  /* --- 动画 --- */
+  --feishu-transition-fast: 0.15s ease;
+  --feishu-transition-normal: 0.25s ease;
+  --feishu-transition-slow: 0.3s ease;
+
+  /* --- z-index 层级 --- */
+  --feishu-z-header: 100;
+  --feishu-z-sidebar: 200;
+  --feishu-z-dropdown: 300;
+  --feishu-z-modal: 500;
+  --feishu-z-toast: 600;
+}
+
+/* --------------------------------------------------------------------------
+ * 2. 全局重置
+ * -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--feishu-font-family);
+  font-size: var(--feishu-font-size-md);
+  color: var(--feishu-text-title);
+  background: var(--feishu-bg-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --------------------------------------------------------------------------
+ * 3. 表格容器 & 整体布局
+ * -------------------------------------------------------------------------- */
+
+/* 最外层容器 */
+.feishu-table-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--feishu-bg-base);
+}
+
+/* ---------- 顶栏 (Header) ---------- */
+.feishu-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--feishu-header-height);
+  padding: 0 var(--feishu-space-lg);
+  background: var(--feishu-N00);
+  border-bottom: 1px solid var(--feishu-line-border-card);
+  flex-shrink: 0;
+  z-index: var(--feishu-z-header);
+}
+
+.feishu-table-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+}
+
+.feishu-table-header-title {
+  font-size: var(--feishu-font-size-lg);
+  font-weight: 600;
+  color: var(--feishu-text-title);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.feishu-table-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+}
+
+/* ---------- 主体区域 (Sidebar + Canvas) ---------- */
+.feishu-table-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ---------- Canvas 区域 ---------- */
+.feishu-table-canvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--feishu-bg-body);
+  border-radius: var(--feishu-radius-card) var(--feishu-radius-card) 0 0;
+  margin: 0 var(--feishu-space-lg) 0 0;
+  box-shadow: var(--feishu-shadow-s1-down);
+}
+
+/* --------------------------------------------------------------------------
+ * 4. 左侧导航栏 (Sidebar)
+ * -------------------------------------------------------------------------- */
+.feishu-table-sidebar {
+  width: var(--feishu-sidebar-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--feishu-N50);
+  border-right: 1px solid var(--feishu-line-border-card);
+  overflow-y: auto;
+}
+
+.feishu-table-sidebar-section {
+  padding: var(--feishu-space-sm) 0;
+}
+
+.feishu-table-sidebar-section-title {
+  padding: var(--feishu-space-xs) var(--feishu-space-lg);
+  font-size: var(--feishu-font-size-sm);
+  font-weight: 600;
+  color: var(--feishu-text-caption);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.feishu-table-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  padding: 6px var(--feishu-space-lg);
+  font-size: var(--feishu-font-size-md);
+  color: var(--feishu-text-title);
+  cursor: pointer;
+  border-radius: var(--feishu-radius-component);
+  margin: 1px var(--feishu-space-sm);
+  transition: background var(--feishu-transition-fast);
+  user-select: none;
+  position: relative;
+}
+
+.feishu-table-sidebar-item:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-table-sidebar-item:active {
+  background: var(--feishu-fill-pressed);
+}
+
+.feishu-table-sidebar-item.active {
+  background: var(--feishu-fill-selected);
+  color: var(--feishu-B600);
+  font-weight: 500;
+}
+
+.feishu-table-sidebar-item-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--feishu-text-caption);
+}
+
+.feishu-table-sidebar-item.active .feishu-table-sidebar-item-icon {
+  color: var(--feishu-B600);
+}
+
+/* --------------------------------------------------------------------------
+ * 5. 工具栏 (Toolbar)
+ * -------------------------------------------------------------------------- */
+.feishu-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  height: var(--feishu-toolbar-height);
+  padding: 0 var(--feishu-space-md);
+  background: var(--feishu-N00);
+  border-bottom: 1px solid var(--feishu-line-divider);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.feishu-table-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--feishu-line-divider);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.feishu-table-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: var(--feishu-font-size-sm);
+  color: var(--feishu-text-title);
+  background: transparent;
+  border: none;
+  border-radius: var(--feishu-radius-component);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--feishu-transition-fast);
+  user-select: none;
+  font-family: inherit;
+  height: 28px;
+}
+
+.feishu-table-toolbar-btn:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-table-toolbar-btn:active {
+  background: var(--feishu-fill-pressed);
+}
+
+.feishu-table-toolbar-btn.primary {
+  color: var(--feishu-N00);
+  background: var(--feishu-B500);
+}
+
+.feishu-table-toolbar-btn.primary:hover {
+  background: var(--feishu-B600);
+}
+
+.feishu-table-toolbar-btn-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+ * 6. 表格网格 (Table Grid)
+ * -------------------------------------------------------------------------- */
+
+/* 表格外层：支持水平/垂直滚动 */
+.feishu-table-grid-wrapper {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* 实际表格 */
+.feishu-table-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+  font-size: var(--feishu-font-size-base);
+}
+
+/* ---------- 表头 (Header Row) ---------- */
+.feishu-table-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: var(--feishu-table-header-row-height);
+  padding: 0 var(--feishu-space-sm);
+  background: var(--feishu-N50);
+  border-bottom: 1px solid var(--feishu-N300);
+  font-weight: 500;
+  font-size: var(--feishu-font-size-sm);
+  color: var(--feishu-text-caption);
+  text-align: left;
+  white-space: nowrap;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.feishu-table-grid thead th:hover {
+  background: var(--feishu-fill-hover);
+}
+
+/* 序号列 / 复选框列 */
+.feishu-table-grid .col-index,
+.feishu-table-grid .col-checkbox {
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+  padding: 0;
+}
+
+/* 冻结列 */
+.feishu-table-grid .col-frozen {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--feishu-N50);
+  box-shadow: 1px 0 0 0 var(--feishu-N300);
+}
+
+.feishu-table-grid thead .col-frozen {
+  z-index: 3;
+}
+
+/* 表头列宽拖拽手柄 */
+.feishu-table-grid thead .col-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background var(--feishu-transition-fast);
+}
+
+.feishu-table-grid thead .col-resizer:hover,
+.feishu-table-grid thead .col-resizer:active {
+  background: var(--feishu-B500);
+}
+
+/* 表头排序图标 */
+.feishu-table-grid thead .sort-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity var(--feishu-transition-fast);
+}
+
+.feishu-table-grid thead th:hover .sort-icon,
+.feishu-table-grid thead th.sorted .sort-icon {
+  opacity: 1;
+}
+
+/* ---------- 数据行 (Data Rows) ---------- */
+.feishu-table-grid tbody td {
+  height: var(--feishu-table-data-row-height);
+  padding: 0 var(--feishu-space-sm);
+  border-bottom: 1px solid var(--feishu-N300);
+  color: var(--feishu-text-title);
+  font-size: var(--feishu-font-size-base);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+/* 行悬浮高亮 */
+.feishu-table-grid tbody tr:hover td {
+  background: var(--feishu-fill-hover);
+}
+
+/* 行选中态 */
+.feishu-table-grid tbody tr.selected td {
+  background: var(--feishu-fill-selected);
+}
+
+/* 冻结列在数据行中的处理 */
+.feishu-table-grid tbody td.col-frozen {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--feishu-N00);
+}
+
+.feishu-table-grid tbody tr:hover td.col-frozen {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-table-grid tbody tr.selected td.col-frozen {
+  background: var(--feishu-fill-selected);
+}
+
+/* 列宽拖拽线（数据行） */
+.feishu-table-grid .col-resize-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--feishu-B500);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ---------- 复选框 ---------- */
+.feishu-table-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--feishu-checkbox-size);
+  height: var(--feishu-checkbox-size);
+  border: 1.5px solid var(--feishu-N400);
+  border-radius: 3px;
+  background: var(--feishu-N00);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--feishu-transition-fast);
+}
+
+.feishu-table-checkbox:hover {
+  border-color: var(--feishu-N600);
+}
+
+.feishu-table-checkbox.checked {
+  background: var(--feishu-B500);
+  border-color: var(--feishu-B500);
+  color: var(--feishu-N00);
+}
+
+.feishu-table-checkbox.partial {
+  background: var(--feishu-N00);
+  border-color: var(--feishu-B500);
+}
+
+/* ---------- 行号 ---------- */
+.feishu-table-row-number {
+  color: var(--feishu-text-caption);
+  font-size: var(--feishu-font-size-sm);
+  text-align: center;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+ * 7. 工具栏按钮组 / 下拉
+ * -------------------------------------------------------------------------- */
+.feishu-table-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.feishu-table-btn-group .feishu-table-toolbar-btn {
+  border-radius: 0;
+}
+
+.feishu-table-btn-group .feishu-table-toolbar-btn:first-child {
+  border-radius: var(--feishu-radius-component) 0 0 var(--feishu-radius-component);
+}
+
+.feishu-table-btn-group .feishu-table-toolbar-btn:last-child {
+  border-radius: 0 var(--feishu-radius-component) var(--feishu-radius-component) 0;
+}
+
+/* 下拉菜单容器 */
+.feishu-table-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.feishu-table-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  background: var(--feishu-bg-float);
+  border: 1px solid var(--feishu-line-border-component);
+  border-radius: var(--feishu-radius-card);
+  box-shadow: var(--feishu-shadow-md-down);
+  padding: var(--feishu-space-xs) 0;
+  z-index: var(--feishu-z-dropdown);
+  display: none;
+}
+
+.feishu-table-dropdown.open .feishu-table-dropdown-menu {
+  display: block;
+}
+
+.feishu-table-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  padding: 6px var(--feishu-space-md);
+  font-size: var(--feishu-font-size-md);
+  color: var(--feishu-text-title);
+  cursor: pointer;
+  transition: background var(--feishu-transition-fast);
+  white-space: nowrap;
+}
+
+.feishu-table-dropdown-item:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-table-dropdown-item.active {
+  background: var(--feishu-fill-selected);
+  color: var(--feishu-B600);
+}
+
+.feishu-table-dropdown-divider {
+  height: 1px;
+  margin: var(--feishu-space-xs) 0;
+  background: var(--feishu-line-divider);
+}
+
+/* --------------------------------------------------------------------------
+ * 8. 表单 / 输入框样式
+ * -------------------------------------------------------------------------- */
+
+/* 基础输入框 */
+.feishu-table-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--feishu-space-sm);
+  font-size: var(--feishu-font-size-base);
+  font-family: var(--feishu-font-family);
+  color: var(--feishu-text-title);
+  background: var(--feishu-N00);
+  border: 1px solid var(--feishu-line-border-component);
+  border-radius: var(--feishu-radius-component);
+  outline: none;
+  transition: border-color var(--feishu-transition-fast),
+    box-shadow var(--feishu-transition-fast);
+}
+
+.feishu-table-input:hover {
+  border-color: var(--feishu-N400);
+}
+
+.feishu-table-input:focus {
+  border-color: var(--feishu-B500);
+  box-shadow: 0 0 0 2px rgba(51, 109, 244, 0.15);
+}
+
+.feishu-table-input::placeholder {
+  color: var(--feishu-text-placeholder);
+}
+
+.feishu-table-input:disabled {
+  background: var(--feishu-N100);
+  color: var(--feishu-text-disabled);
+  cursor: not-allowed;
+  border-color: var(--feishu-N300);
+}
+
+/* 单元格内编辑输入框 */
+.feishu-table-cell-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--feishu-space-sm);
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  background: var(--feishu-N00);
+  border: 2px solid var(--feishu-B500);
+  border-radius: var(--feishu-radius-component);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(51, 109, 244, 0.15);
+}
+
+/* 选择框 (Select) */
+.feishu-table-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 100px;
+  height: 32px;
+  padding: 0 var(--feishu-space-sm);
+  font-size: var(--feishu-font-size-base);
+  font-family: var(--feishu-font-family);
+  color: var(--feishu-text-title);
+  background: var(--feishu-N00);
+  border: 1px solid var(--feishu-line-border-component);
+  border-radius: var(--feishu-radius-component);
+  cursor: pointer;
+  transition: border-color var(--feishu-transition-fast);
+  user-select: none;
+}
+
+.feishu-table-select:hover {
+  border-color: var(--feishu-N400);
+}
+
+.feishu-table-select:focus {
+  border-color: var(--feishu-B500);
+  box-shadow: 0 0 0 2px rgba(51, 109, 244, 0.15);
+}
+
+/* 多选标签 */
+.feishu-table-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: var(--feishu-font-size-sm);
+  color: var(--feishu-B600);
+  background: rgba(51, 109, 244, 0.08);
+  border-radius: var(--feishu-radius-full);
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feishu-table-tag .tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background var(--feishu-transition-fast);
+}
+
+.feishu-table-tag .tag-remove:hover {
+  background: rgba(20, 86, 240, 0.2);
+}
+
+/* 搜索框 */
+.feishu-table-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.feishu-table-search .feishu-table-input {
+  padding-left: 28px;
+}
+
+.feishu-table-search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--feishu-text-placeholder);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+ * 9. 按钮体系
+ * -------------------------------------------------------------------------- */
+
+/* 通用按钮 */
+.feishu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 var(--feishu-space-md);
+  font-size: var(--feishu-font-size-md);
+  font-family: var(--feishu-font-family);
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: var(--feishu-radius-component);
+  cursor: pointer;
+  transition: all var(--feishu-transition-fast);
+  user-select: none;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* 主按钮 */
+.feishu-btn-primary {
+  color: var(--feishu-N00);
+  background: var(--feishu-B500);
+  border-color: var(--feishu-B500);
+}
+
+.feishu-btn-primary:hover {
+  background: var(--feishu-B600);
+  border-color: var(--feishu-B600);
+}
+
+.feishu-btn-primary:active {
+  background: var(--feishu-B600);
+  transform: scale(0.98);
+}
+
+.feishu-btn-primary:disabled {
+  background: var(--feishu-N400);
+  border-color: var(--feishu-N400);
+  color: var(--feishu-N00);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 次要按钮（文字型） */
+.feishu-btn-secondary {
+  color: var(--feishu-text-title);
+  background: var(--feishu-N00);
+  border-color: var(--feishu-line-border-component);
+}
+
+.feishu-btn-secondary:hover {
+  background: var(--feishu-fill-hover);
+  border-color: var(--feishu-N350);
+}
+
+.feishu-btn-secondary:active {
+  background: var(--feishu-fill-pressed);
+  transform: scale(0.98);
+}
+
+.feishu-btn-secondary:disabled {
+  color: var(--feishu-text-disabled);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 文字按钮（无边框） */
+.feishu-btn-text {
+  color: var(--feishu-text-title);
+  background: transparent;
+  border-color: transparent;
+}
+
+.feishu-btn-text:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-btn-text:active {
+  background: var(--feishu-fill-pressed);
+  transform: scale(0.98);
+}
+
+.feishu-btn-text:disabled {
+  color: var(--feishu-text-disabled);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 文字按钮-品牌色变体 */
+.feishu-btn-text-brand {
+  color: var(--feishu-B500);
+  background: transparent;
+  border-color: transparent;
+}
+
+.feishu-btn-text-brand:hover {
+  background: var(--feishu-fill-selected);
+}
+
+/* 危险按钮 */
+.feishu-btn-danger {
+  color: #de3939;
+  background: transparent;
+  border-color: transparent;
+}
+
+.feishu-btn-danger:hover {
+  background: rgba(222, 57, 57, 0.08);
+}
+
+/* 图标按钮（纯图标无文字） */
+.feishu-btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--feishu-text-caption);
+  border-radius: var(--feishu-radius-component);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--feishu-transition-fast);
+}
+
+.feishu-btn-icon:hover {
+  background: var(--feishu-fill-hover);
+  color: var(--feishu-text-title);
+}
+
+.feishu-btn-icon:active {
+  background: var(--feishu-fill-pressed);
+}
+
+/* 按钮尺寸变体 */
+.feishu-btn-sm {
+  height: 28px;
+  padding: 0 var(--feishu-space-sm);
+  font-size: var(--feishu-font-size-sm);
+}
+
+.feishu-btn-lg {
+  height: 40px;
+  padding: 0 var(--feishu-space-xl);
+  font-size: var(--feishu-font-size-lg);
+}
+
+/* --------------------------------------------------------------------------
+ * 10. 弹窗 / 模态框 (Modal / Dialog)
+ * -------------------------------------------------------------------------- */
+
+/* 遮罩层 */
+.feishu-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 35, 41, 0.4);
+  z-index: var(--feishu-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: feishu-fade-in var(--feishu-transition-normal);
+}
+
+/* 模态框主体 */
+.feishu-modal {
+  background: var(--feishu-bg-float);
+  border-radius: var(--feishu-radius-card);
+  box-shadow: var(--feishu-shadow-lg-down);
+  display: flex;
+  flex-direction: column;
+  min-width: 400px;
+  max-width: 560px;
+  max-height: 80vh;
+  animation: feishu-modal-in var(--feishu-transition-normal);
+}
+
+.feishu-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--feishu-space-lg) var(--feishu-space-xl);
+  border-bottom: 1px solid var(--feishu-line-divider);
+}
+
+.feishu-modal-title {
+  font-size: var(--feishu-font-size-lg);
+  font-weight: 600;
+  color: var(--feishu-text-title);
+}
+
+.feishu-modal-body {
+  padding: var(--feishu-space-xl);
+  overflow-y: auto;
+  flex: 1;
+  font-size: var(--feishu-font-size-md);
+  color: var(--feishu-text-title);
+  line-height: 1.6;
+}
+
+.feishu-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--feishu-space-sm);
+  padding: var(--feishu-space-md) var(--feishu-space-xl);
+  border-top: 1px solid var(--feishu-line-divider);
+}
+
+/* 模态框尺寸变体 */
+.feishu-modal-sm {
+  max-width: 400px;
+}
+.feishu-modal-lg {
+  max-width: 720px;
+}
+
+/* 确认对话框 */
+.feishu-confirm-dialog .feishu-modal-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--feishu-space-md);
+}
+
+.feishu-confirm-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--feishu-B500);
+}
+
+.feishu-confirm-icon.warning {
+  color: #f59e0b;
+}
+
+.feishu-confirm-icon.danger {
+  color: #de3939;
+}
+
+.feishu-confirm-text {
+  flex: 1;
+}
+
+.feishu-confirm-desc {
+  color: var(--feishu-text-caption);
+  font-size: var(--feishu-font-size-sm);
+  margin-top: var(--feishu-space-xs);
+}
+
+/* 动画 */
+@keyframes feishu-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes feishu-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 11. 字段配置弹窗（飞书特有）
+ * -------------------------------------------------------------------------- */
+
+/* 字段编辑面板 */
+.feishu-field-panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 280px;
+  background: var(--feishu-bg-float);
+  border: 1px solid var(--feishu-line-border-component);
+  border-radius: var(--feishu-radius-card);
+  box-shadow: var(--feishu-shadow-md-down);
+  z-index: var(--feishu-z-dropdown);
+  padding: var(--feishu-space-md) 0;
+}
+
+.feishu-field-panel-item {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  padding: 6px var(--feishu-space-md);
+  font-size: var(--feishu-font-size-md);
+  color: var(--feishu-text-title);
+  cursor: pointer;
+  transition: background var(--feishu-transition-fast);
+}
+
+.feishu-field-panel-item:hover {
+  background: var(--feishu-fill-hover);
+}
+
+/* 字段类型图标 */
+.feishu-field-type-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* 文本字段 */
+.feishu-field-type-icon.text {
+  background: rgba(51, 109, 244, 0.1);
+  color: var(--feishu-B500);
+}
+
+/* 多选字段 */
+.feishu-field-type-icon.select {
+  background: rgba(0, 180, 42, 0.1);
+  color: #00b42a;
+}
+
+/* 数字字段 */
+.feishu-field-type-icon.number {
+  background: rgba(222, 57, 57, 0.1);
+  color: #de3939;
+}
+
+/* 日期字段 */
+.feishu-field-type-icon.date {
+  background: rgba(255, 138, 0, 0.1);
+  color: #ff8a00;
+}
+
+/* 附件字段 */
+.feishu-field-type-icon.attachment {
+  background: rgba(100, 106, 115, 0.1);
+  color: var(--feishu-N600);
+}
+
+/* --------------------------------------------------------------------------
+ * 12. 行高切换 & 视图控制
+ * -------------------------------------------------------------------------- */
+
+/* 行高紧凑 */
+.feishu-table-grid.row-height-compact thead th,
+.feishu-table-grid.row-height-compact tbody td {
+  height: 28px;
+}
+
+/* 行高适中（默认） */
+.feishu-table-grid.row-height-medium thead th,
+.feishu-table-grid.row-height-medium tbody td {
+  height: var(--feishu-table-data-row-height);
+}
+
+/* 行高宽松 */
+.feishu-table-grid.row-height-loose thead th,
+.feishu-table-grid.row-height-loose tbody td {
+  height: 48px;
+}
+
+/* 行高极高 */
+.feishu-table-grid.row-height-extra-loose thead th,
+.feishu-table-grid.row-height-extra-loose tbody td {
+  height: 60px;
+}
+
+/* --------------------------------------------------------------------------
+ * 13. 单元格内容特殊样式
+ * -------------------------------------------------------------------------- */
+
+/* 单元格链接 */
+.feishu-table-cell-link {
+  color: var(--feishu-B500);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.feishu-table-cell-link:hover {
+  text-decoration: underline;
+}
+
+/* 单元格空值占位 */
+.feishu-table-cell-empty {
+  color: var(--feishu-text-placeholder);
+  font-style: italic;
+}
+
+/* 单元格错误态 */
+.feishu-table-cell-error {
+  color: #de3939;
+  background: rgba(222, 57, 57, 0.04);
+  border-radius: 2px;
+  padding: 0 4px;
+}
+
+/* 单元格图片缩略图 */
+.feishu-table-cell-image {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+/* 单元格成员头像 */
+.feishu-table-cell-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--feishu-N200);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--feishu-N00);
+  background: var(--feishu-B500);
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* --------------------------------------------------------------------------
+ * 14. 加载 / 空态 / 错误态
+ * -------------------------------------------------------------------------- */
+
+/* 加载中 */
+.feishu-table-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--feishu-text-caption);
+  font-size: var(--feishu-font-size-md);
+}
+
+.feishu-table-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--feishu-N300);
+  border-top-color: var(--feishu-B500);
+  border-radius: 50%;
+  animation: feishu-spin 0.6s linear infinite;
+  margin-right: var(--feishu-space-sm);
+}
+
+@keyframes feishu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 空态 */
+.feishu-table-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 240px;
+  color: var(--feishu-text-caption);
+  font-size: var(--feishu-font-size-md);
+  gap: var(--feishu-space-md);
+}
+
+.feishu-table-empty-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--feishu-N300);
+}
+
+/* 错误态 */
+.feishu-table-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 240px;
+  color: #de3939;
+  font-size: var(--feishu-font-size-md);
+  gap: var(--feishu-space-md);
+}
+
+/* --------------------------------------------------------------------------
+ * 15. Toast / 轻提示
+ * -------------------------------------------------------------------------- */
+.feishu-toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  padding: 8px var(--feishu-space-lg);
+  background: var(--feishu-N800);
+  color: var(--feishu-N00);
+  font-size: var(--feishu-font-size-md);
+  border-radius: var(--feishu-radius-component);
+  box-shadow: var(--feishu-shadow-md-down);
+  z-index: var(--feishu-z-toast);
+  animation: feishu-toast-in var(--feishu-transition-normal);
+}
+
+.feishu-toast.success {
+  background: #00b42a;
+}
+
+.feishu-toast.error {
+  background: #de3939;
+}
+
+.feishu-toast.warning {
+  background: #ff8a00;
+}
+
+@keyframes feishu-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 16. 筛选面板
+ * -------------------------------------------------------------------------- */
+.feishu-filter-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--feishu-bg-float);
+  border: 1px solid var(--feishu-line-border-component);
+  border-radius: var(--feishu-radius-card);
+  box-shadow: var(--feishu-shadow-md-down);
+  z-index: var(--feishu-z-dropdown);
+  padding: var(--feishu-space-md);
+}
+
+.feishu-filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--feishu-space-md);
+}
+
+.feishu-filter-panel-title {
+  font-weight: 600;
+  font-size: var(--feishu-font-size-md);
+}
+
+.feishu-filter-option {
+  display: flex;
+  align-items: center;
+  gap: var(--feishu-space-sm);
+  padding: 6px var(--feishu-space-sm);
+  border-radius: var(--feishu-radius-component);
+  cursor: pointer;
+  font-size: var(--feishu-font-size-base);
+  color: var(--feishu-text-title);
+  transition: background var(--feishu-transition-fast);
+}
+
+.feishu-filter-option:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-filter-option.selected {
+  background: var(--feishu-fill-selected);
+  color: var(--feishu-B600);
+}
+
+/* 筛选条件标签 */
+.feishu-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: var(--feishu-font-size-sm);
+  background: rgba(51, 109, 244, 0.08);
+  color: var(--feishu-B600);
+  border-radius: var(--feishu-radius-full);
+  cursor: pointer;
+}
+
+.feishu-filter-tag .filter-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.feishu-filter-tag .filter-remove:hover {
+  background: rgba(20, 86, 240, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+ * 17. 分组面板
+ * -------------------------------------------------------------------------- */
+.feishu-group-header {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--feishu-space-md);
+  background: var(--feishu-N50);
+  border-bottom: 1px solid var(--feishu-N300);
+  font-weight: 600;
+  font-size: var(--feishu-font-size-sm);
+  color: var(--feishu-text-caption);
+  cursor: pointer;
+  user-select: none;
+}
+
+.feishu-group-header:hover {
+  background: var(--feishu-fill-hover);
+}
+
+.feishu-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: var(--feishu-space-sm);
+  transition: transform var(--feishu-transition-fast);
+}
+
+.feishu-group-header.collapsed .feishu-group-toggle {
+  transform: rotate(-90deg);
+}
+
+.feishu-group-count {
+  margin-left: var(--feishu-space-xs);
+  color: var(--feishu-text-caption);
+  font-weight: 400;
+}
+
+/* --------------------------------------------------------------------------
+ * 18. 滚动条美化
+ * -------------------------------------------------------------------------- */
+.feishu-table-grid-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.feishu-table-grid-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.feishu-table-grid-wrapper::-webkit-scrollbar-thumb {
+  background: var(--feishu-N350);
+  border-radius: var(--feishu-radius-full);
+}
+
+.feishu-table-grid-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--feishu-N400);
+}
+
+.feishu-table-grid-wrapper::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox 滚动条 */
+.feishu-table-grid-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--feishu-N350) transparent;
+}
+
+/* --------------------------------------------------------------------------
+ * 19. 响应式适配
+ * -------------------------------------------------------------------------- */
+
+/* 平板及以下 (≤1024px) */
+@media (max-width: 1024px) {
+  .feishu-table-sidebar {
+    width: 200px;
+  }
+
+  :root {
+    --feishu-sidebar-width: 200px;
+  }
+}
+
+/* 小屏设备 (≤768px) */
+@media (max-width: 768px) {
+  .feishu-table-sidebar {
+    position: fixed;
+    left: 0;
+    top: var(--feishu-header-height);
+    bottom: 0;
+    z-index: var(--feishu-z-sidebar);
+    transform: translateX(-100%);
+    transition: transform var(--feishu-transition-normal);
+  }
+
+  .feishu-table-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .feishu-table-canvas {
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .feishu-table-toolbar {
+    padding: 0 var(--feishu-space-sm);
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .feishu-table-header-title {
+    max-width: 160px;
+  }
+
+  .feishu-modal {
+    min-width: auto;
+    max-width: calc(100vw - 32px);
+    margin: 0 var(--feishu-space-lg);
+  }
+}
+
+/* 超小屏 (≤480px) */
+@media (max-width: 480px) {
+  :root {
+    --feishu-header-height: 44px;
+    --feishu-toolbar-height: 36px;
+  }
+
+  .feishu-table-header {
+    padding: 0 var(--feishu-space-sm);
+  }
+
+  .feishu-table-toolbar-btn {
+    font-size: var(--feishu-font-size-xs);
+    padding: 2px 6px;
+    height: 24px;
+  }
+
+  .feishu-table-grid-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .feishu-modal {
+    border-radius: var(--feishu-radius-card) var(--feishu-radius-card) 0 0;
+    margin: 0;
+    max-width: 100%;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 90vh;
+    animation: feishu-modal-in-mobile var(--feishu-transition-normal);
+  }
+}
+
+@keyframes feishu-modal-in-mobile {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * 20. 打印样式
+ * -------------------------------------------------------------------------- */
+@media print {
+  .feishu-table-sidebar,
+  .feishu-table-toolbar,
+  .feishu-table-header {
+    display: none;
+  }
+
+  .feishu-table-canvas {
+    margin: 0;
+    box-shadow: none;
+    border: none;
+    overflow: visible;
+  }
+
+  .feishu-table-grid {
+    font-size: 11px;
+  }
+
+  .feishu-table-grid thead th,
+  .feishu-table-grid tbody td {
+    border: 1px solid #ccc;
+  }
+
+  .feishu-table-grid tbody tr:hover td {
+    background: transparent;
+  }
+}
