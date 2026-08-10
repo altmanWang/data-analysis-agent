@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from services.session_manager import session_manager
 from services.worktree_manager import worktree_manager
+from agent.pool import agent_pool
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -51,6 +52,7 @@ async def delete_session(session_id: str):
 
     worktree_manager.delete_worktree(session_id)
     session_manager.soft_delete(session_id)
+    agent_pool.evict_session(session_id)
     return {"message": "已删除"}
 
 
@@ -66,4 +68,5 @@ async def archive_session(session_id: str):
     session_manager.update_status(session_id, "archiving")
     worktree_manager.archive_session(session_id)
     session_manager.update_status(session_id, "archived")
+    agent_pool.evict_session(session_id)
     return {"message": "已归档"}

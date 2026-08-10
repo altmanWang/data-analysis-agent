@@ -56,3 +56,25 @@ STREAM_CONFIG = {
 
 # Skills 目录
 SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
+
+# ============================================================
+# Wasmsh 沙箱配置（Python 代码执行沙箱）
+# ============================================================
+SANDBOX_CONFIG = {
+    # VM 步数预算（0=不限制），用于限制 shell 命令的 VM 指令数。
+    # 注意：Python 代码不受 step_budget 约束，需用 execution_timeout 兜底。
+    "step_budget": 100_000,
+
+    # 执行超时（秒），宿主端 asyncio.wait_for 强制执行。
+    "execution_timeout": 60,
+
+    # 网络白名单。数据科学包通过 backend/sandbox_wheels/ 离线预加载，
+    # 无需网络，保留空列表以确保安全。
+    "allowed_hosts": [],
+
+    # py_eval 工具单次输出最大字符数，超出截断。
+    "max_result_chars": 8000,
+
+    # pickle 快照最大字节数（默认 8 MiB），超出则丢弃快照。
+    "max_snapshot_bytes": 8 * 1024 * 1024,
+}

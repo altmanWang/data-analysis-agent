@@ -222,6 +222,7 @@ function formatToolName(name) {
     'load-data': '读取数据',
     'execute_python': '执行代码',
     'run_python': '执行代码',
+    'py_eval': 'Python 执行',
     'write_file': '写入文件',
     'write-file': '写入文件',
     'read_file': '读取文件',

@@ -53,7 +53,7 @@ function toggleExpand() {
 const stripeColor = computed(() => {
   const name = (props.item?.name || '').toLowerCase()
   const dataTools = ['load_csv', 'load_excel', 'load-data', 'read_file', 'read-file', 'ls', 'list_files']
-  const codeTools = ['execute_python', 'run_python', 'write_file', 'write-file']
+  const codeTools = ['execute_python', 'run_python', 'py_eval', 'write_file', 'write-file']
   const agentTools = ['task', 'data-analyst']
 
   if (dataTools.includes(name)) return 'var(--color-primary)'

@@ -3,15 +3,143 @@
 
 import os
 import logging
+import warnings
 from deepagents import create_deep_agent, FilesystemPermission
+
+# 抑制 wasmsh 在 Node.js 下 allowed_hosts 的已知警告
+warnings.filterwarnings("ignore", message=".*allowed_hosts.*OS-level.*")
+# 抑制 WasmshInterpreterMiddleware 的 beta 警告
+warnings.filterwarnings("ignore", message=".*WasmshInterpreterMiddleware.*in beta.*")
 
 logger = logging.getLogger(__name__)
 from deepagents.backends import CompositeBackend, FilesystemBackend
 from langchain.chat_models import init_chat_model
-from config import MODEL_CONFIG, AGENT_CONFIG, SKILLS_DIR, PROJECT_ROOT
+from langchain_wasmsh import WasmshInterpreterMiddleware, WasmshSandbox
+from config import MODEL_CONFIG, AGENT_CONFIG, SANDBOX_CONFIG, SKILLS_DIR, PROJECT_ROOT
 from storage.mysql_saver import MySQLSaver
 from db import get_connection
 from tools.ask_user import ask_user
+from sandbox import get_preload_files, BOOTSTRAP_SCRIPT
+
+
+def _create_sandbox_factory(worktree_root: str):
+    """返回一个闭包工厂函数，创建的沙箱会自动双向同步工作目录文件。
+
+    - 创建时：将 worktree 中的文件上传到沙箱 VFS
+    - 关闭时：将沙箱中生成的文件下载回 worktree
+
+    Args:
+        worktree_root: 宿主机上的 session 工作目录（如 sandboxes/{session_id}/）
+    """
+    def factory() -> WasmshSandbox:
+        preload = get_preload_files()
+
+        sandbox = WasmshSandbox(
+            step_budget=SANDBOX_CONFIG["step_budget"],
+            allowed_hosts=[],
+            working_directory="/",
+            initial_files=preload,
+        )
+
+        # 安装预缓存的 wheel
+        if preload:
+            sandbox.write("/bootstrap.py", BOOTSTRAP_SCRIPT)
+            result = sandbox.execute("python3 /bootstrap.py")
+            logger.debug("sandbox bootstrap: %s", result.output.strip())
+
+        # ── 宿主机 → 沙箱：上传工作目录文件 ──
+        _host_to_sandbox(sandbox, worktree_root)
+
+        # 保存原始方法（供 _sandbox_to_host 内部使用，避免递归）
+        _raw_execute = sandbox.execute
+
+        # ── 每次 execute 后 → 宿主机：自动导出新生成的文件 ──
+        _original_aexecute = sandbox.aexecute
+
+        def _execute_with_export(*args, **kwargs):
+            result = _raw_execute(*args, **kwargs)
+            try:
+                _sandbox_to_host_raw(sandbox, worktree_root, _raw_execute)
+            except Exception as e:
+                logger.warning("execute 后文件同步失败: %s", e)
+            return result
+
+        async def _aexecute_with_export(*args, **kwargs):
+            result = await _original_aexecute(*args, **kwargs)
+            try:
+                _sandbox_to_host_raw(sandbox, worktree_root, _raw_execute)
+            except Exception as e:
+                logger.warning("aexecute 后文件同步失败: %s", e)
+            return result
+
+        sandbox.execute = _execute_with_export
+        sandbox.aexecute = _aexecute_with_export
+
+        # ── 沙箱关闭时 → 宿主机：下载生成的文件 ──
+        _original_close = sandbox.close
+        def _close_with_export():
+            try:
+                _sandbox_to_host_raw(sandbox, worktree_root, _raw_execute)
+            except Exception as e:
+                logger.warning("沙箱文件导出失败: %s", e)
+            _original_close()
+        sandbox.close = _close_with_export
+
+        return sandbox
+    return factory
+
+
+def _host_to_sandbox(sandbox: WasmshSandbox, worktree_root: str) -> None:
+    """上传 worktree 中的所有文件到沙箱 VFS 的 /workspace/ 下。"""
+    if not os.path.isdir(worktree_root):
+        return
+    uploads: list[tuple[str, bytes]] = []
+    for entry in os.scandir(worktree_root):
+        if entry.is_file():
+            try:
+                with open(entry.path, "rb") as f:
+                    uploads.append((f"/{entry.name}", f.read()))
+            except OSError as e:
+                logger.warning("无法读取工作文件 %s: %s", entry.name, e)
+    if uploads:
+        sandbox.upload_files(uploads)
+        logger.debug("沙箱已导入 %d 个工作文件", len(uploads))
+
+
+def _sandbox_to_host_raw(
+    sandbox: WasmshSandbox, worktree_root: str, execute: callable
+) -> None:
+    """下载沙箱 VFS /workspace/ 中的文件到宿主机 worktree。
+
+    execute 参数必须是 sandbox 的原始 execute 方法（未被 patch 的），
+    防止与 _execute_with_export 形成递归死循环。
+    """
+    ls_result = execute(
+        "ls -p / 2>/dev/null | grep -v '/' | grep -v 'bootstrap.py'"
+    )
+    # ls 只返回文件名，download_files 需要完整路径
+    filenames = [p.strip() for p in ls_result.output.strip().split("\n") if p.strip()]
+    paths = [f"/{f}" for f in filenames]
+    if not paths:
+        return
+
+    results = sandbox.download_files(paths)
+    exported = 0
+    for resp in results:
+        if resp.error or resp.content is None:
+            continue
+        filename = os.path.basename(resp.path)
+        dest = os.path.join(worktree_root, filename)
+        try:
+            os.makedirs(worktree_root, exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(resp.content)
+            exported += 1
+        except OSError as e:
+            logger.warning("无法写入导出文件 %s: %s", dest, e)
+
+    if exported:
+        logger.debug("沙箱已导出 %d 个文件到 %s", exported, worktree_root)
 
 
 def _discover_skills(skills_dir: str) -> list[str]:
@@ -169,12 +297,24 @@ def build_agent(session_id: str, tools: list, subagents: list):
             session_id, len(all_subagents), len(custom_agents), len(subagents),
         )
 
+    # # Wasmsh 沙箱中间件：按 thread_id 管理独立的 Pyodide 沙箱实例，
+    # # 自动注入 py_eval 工具，支持跨轮次的 REPL 状态持久化。
+    # # 沙箱创建时自动同步 sandboxes/{session_id}/ 中的文件到 VFS。
+    # interpreter_middleware = WasmshInterpreterMiddleware(
+    #     sandbox_factory=_create_sandbox_factory(sandboxes_dir),
+    #     timeout=SANDBOX_CONFIG["execution_timeout"],
+    #     max_result_chars=SANDBOX_CONFIG["max_result_chars"],
+    #     max_snapshot_bytes=SANDBOX_CONFIG["max_snapshot_bytes"],
+    #     snapshot_between_turns=True,
+    # )
+
     system_prompt = MAIN_SYSTEM_PROMPT.format(custom_agents_section=custom_agents_section)
 
     agent = create_deep_agent(
         model=model,
         backend=backend,
         tools=tools,
+        # middleware=[interpreter_middleware],
         subagents=all_subagents,
         skills=skill_paths,
         permissions=permissions,
@@ -182,7 +322,7 @@ def build_agent(session_id: str, tools: list, subagents: list):
         checkpointer=checkpointer,
     )
 
-    return agent
+    return agent, None
 
 
 def build_data_analyst_subagent(worktree_root: str) -> dict:
@@ -199,11 +339,12 @@ def build_data_analyst_subagent(worktree_root: str) -> dict:
         "name": "data-analyst",
         "description": "数据分析执行者，负责读取数据、生成 HTML 报告。",
         "system_prompt": """你是数据分析执行者，负责读取 CSV/Excel 数据并生成 HTML 报告。
-        ## 铁律
-        当前没有shell执行权限，所以不要写任何可执行的代码进行数据分析
-        ## 分析要求
-        - 灵活加载 skill 美化 HTML 报告。
-        - 图表保存到 `/reports/` 目录，HTML 报告保存到 `/` 根目录。""",
+
+## 铁律
+当前没有shell执行权限，所以不要写任何可执行的代码进行数据分析
+## 分析要求
+- 灵活加载 skill 美化 HTML 报告。
+- 图表保存到 `/reports/` 目录，HTML 报告保存到 `/` 根目录。""",
         "tools": [load_csv],
         "skills": skill_paths,
     }
