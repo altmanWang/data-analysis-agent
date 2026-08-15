@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%236799fe'/%3E%3Cpath d='M7 8h4M7 12h7M7 16h10' stroke='%230a0a0a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
+<title>DeepSeek Harness · 开发者预览版</title>
+<style>
+/* ============================================================
+   DeepSeek Harness 开发者预览版 · 设计令牌（权威依据，逐字采用）
+   ============================================================ */
+:root {
+  --ds-color-bg-page: #0a0a0a;
+  --ds-color-brand: #6799fe;
+  --ds-color-brand-deep: #fff;
+  --ds-color-text-primary: #fff;
+  --ds-color-text-secondary: hsla(0,0%,100%,.8);
+  --ds-color-text-description: hsla(0,0%,100%,.5);
+  --ds-color-text-placeholder: hsla(0,0%,100%,.3);
+  --ds-color-bg-surface-1: hsla(0,0%,100%,.06);
+  --ds-color-bg-surface-2: hsla(0,0%,100%,.04);
+  --ds-color-bg-surface-3: hsla(0,0%,100%,.02);
+  --ds-color-bg-surface-5: hsla(0,0%,100%,.12);
+  --ds-color-bg-input: hsla(0,0%,100%,.08);
+  --ds-color-bg-code: rgba(0,0,0,.35);
+  --ds-color-bg-overlay: rgba(20,20,22,.96);
+  --ds-color-border-default: hsla(0,0%,100%,.06);
+  --ds-color-border-subtle: hsla(0,0%,100%,.08);
+  --ds-color-border-secondary: hsla(0,0%,100%,.2);
+  --ds-color-border-strong: hsla(0,0%,100%,.24);
+  --ds-color-border-divider: hsla(0,0%,100%,.25);
+  --ds-shadow-card: hsla(0,0%,100%,.12) 0px 1px 0px 0px inset;
+  --ds-radius-sm: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 16px;
+  --ds-radius-card: 24px;
+  --ds-radius-pill: 100px;
+  --ds-font-display: "Host Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ds-font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", sans-serif;
+  --ds-font-mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans SC", monospace;
+
+  /* 间距刻度 */
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+  --sp-56: 56px;
+  --sp-80: 80px;
+  --sp-120: 120px;
+  --sp-160: 160px;
+  --sp-200: 200px;
+  --sp-240: 240px;
+
+  /* Hero 光晕 */
+  --ds-glow-blue-deep: rgb(26,56,112);
+  --ds-glow-blue-mid: rgb(45,95,158);
+  --ds-glow-blue-light: rgb(74,138,196);
+
+  --ds-container: 1280px;
+  --ds-nav-h: 64px;
+}
+
+/* ============================================================
+   基础重置
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--ds-color-bg-page);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-sans);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+h1, h2, h3, h4 { font-family: var(--ds-font-display); font-weight: 600; margin: 0; }
+p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+code, pre { font-family: var(--ds-font-mono); }
+::selection { background: var(--ds-color-brand); color: #0a0a0a; }
+
+.container {
+  width: 100%;
+  max-width: var(--ds-container);
+  margin: 0 auto;
+  padding-inline: var(--sp-24);
+}
+
+/* ============================================================
+   1. 吸顶导航栏
+   ============================================================ */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--ds-nav-h);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background-color .25s ease, border-color .25s ease;
+}
+.nav.scrolled {
+  background: hsla(0,0%,4%,.72);
+  border-bottom-color: var(--ds-color-border-default);
+}
+.nav-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-16);
+}
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-family: var(--ds-font-display);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -.01em;
+}
+.nav-brand svg { display: block; }
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-8);
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-surface-2);
+}
+.lang-switch button {
+  font-size: 13px;
+  color: var(--ds-color-text-description);
+  padding: var(--sp-4) var(--sp-8);
+  border-radius: var(--ds-radius-sm);
+  transition: color .15s ease, background-color .15s ease;
+  line-height: 1;
+}
+.lang-switch button.active {
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-surface-5);
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.nav-links a {
+  font-size: 14px;
+  color: var(--ds-color-text-secondary);
+  padding: var(--sp-8) var(--sp-12);
+  border-radius: var(--ds-radius-sm);
+  transition: color .15s ease, background-color .15s ease;
+}
+.nav-links a:hover {
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-surface-1);
+}
+
+/* ============================================================
+   2. Hero 区
+   ============================================================ */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: var(--sp-120);
+  padding-bottom: var(--sp-120);
+}
+.hero-glow {
+  position: absolute;
+  inset: auto 0 0 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero-glow::before,
+.hero-glow::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(80px);
+}
+.hero-glow::before {
+  width: 720px;
+  height: 720px;
+  left: -180px;
+  bottom: -420px;
+  background: radial-gradient(circle, var(--ds-glow-blue-deep), transparent 70%);
+  filter: blur(60px);
+}
+.hero-glow::after {
+  width: 640px;
+  height: 640px;
+  right: -120px;
+  bottom: -360px;
+  background: radial-gradient(circle, var(--ds-glow-blue-mid), transparent 70%);
+  filter: blur(100px);
+}
+.hero-digitile {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.hero-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 180px;
+  background: linear-gradient(to bottom, transparent, var(--ds-color-bg-page));
+  z-index: 2;
+  pointer-events: none;
+}
+.hero-grid {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-56);
+}
+.hero-left { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-24); }
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-16);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-color-bg-surface-1);
+  border: 1px solid var(--ds-color-border-subtle);
+  color: var(--ds-color-text-secondary);
+  font-size: 13px;
+}
+.badge-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-brand);
+  box-shadow: 0 0 8px var(--ds-color-brand);
+}
+.hero h1 {
+  font-size: clamp(44px, 8vw, 88px);
+  line-height: 1.04;
+  letter-spacing: -.03em;
+  font-weight: 600;
+}
+.hero-desc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  max-width: 560px;
+}
+.hero-desc p {
+  color: var(--ds-color-text-secondary);
+  font-size: 16px;
+}
+.hero-desc p strong { color: var(--ds-color-text-secondary); font-weight: 500; }
+.hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-12);
+}
+.cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ds-color-text-primary);
+  padding: var(--sp-8) var(--sp-4);
+  border-bottom: 1px solid transparent;
+  transition: color .15s ease, border-color .15s ease;
+}
+.cta-link:hover { border-bottom-color: var(--ds-color-border-divider); }
+.cta-link svg { width: 16px; height: 16px; color: var(--ds-color-text-description); }
+
+/* 终端面板 */
+.hero-right { display: flex; flex-direction: column; gap: var(--sp-16); }
+.tab-switch {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: var(--sp-4);
+  gap: var(--sp-4);
+  border-radius: var(--ds-radius-input);
+  background: var(--ds-color-bg-surface-1);
+  border: 1px solid var(--ds-color-border-default);
+}
+.tab-switch button {
+  padding: var(--sp-8) var(--sp-16);
+  border-radius: var(--ds-radius-sm);
+  font-size: 14px;
+  color: var(--ds-color-text-description);
+  transition: color .15s ease, background-color .15s ease;
+  white-space: nowrap;
+}
+.tab-switch button.active {
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-surface-5);
+}
+.terminal {
+  border: 1px solid var(--ds-color-border-default);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-color-bg-code);
+  overflow: hidden;
+  box-shadow: var(--ds-shadow-card);
+}
+.terminal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-12);
+  padding: var(--sp-12) var(--sp-16);
+  border-bottom: 1px solid var(--ds-color-border-default);
+  background: var(--ds-color-bg-surface-2);
+}
+.terminal-dots {
+  display: flex;
+  gap: var(--sp-8);
+  flex-shrink: 0;
+}
+.terminal-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ds-color-bg-surface-5);
+}
+.terminal-dots span:nth-child(1) { background: hsla(0,0%,100%,.28); }
+.terminal-dots span:nth-child(2) { background: hsla(0,0%,100%,.18); }
+.terminal-dots span:nth-child(3) { background: hsla(0,0%,100%,.1); }
+/* 模式选择器 */
+.mode-select { position: relative; }
+.mode-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: 13px;
+  color: var(--ds-color-text-secondary);
+  padding: var(--sp-4) var(--sp-12);
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-surface-1);
+  transition: color .15s ease, background-color .15s ease;
+}
+.mode-select-btn:hover { color: var(--ds-color-text-primary); background: var(--ds-color-bg-surface-5); }
+.mode-select-btn svg { width: 12px; height: 12px; transition: transform .2s ease; }
+.mode-select.open .mode-select-btn svg { transform: rotate(180deg); }
+.mode-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-8));
+  right: 0;
+  width: 340px;
+  max-width: 90vw;
+  z-index: 20;
+  border-radius: var(--ds-radius-panel);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-overlay);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 48px rgba(0,0,0,.6);
+  padding: var(--sp-8);
+  display: none;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.mode-select.open .mode-menu { display: flex; }
+.mode-item {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-12) var(--sp-16);
+  border-radius: var(--ds-radius-sm);
+  transition: background-color .15s ease;
+}
+.mode-item:hover { background: var(--ds-color-bg-surface-1); }
+.mode-item .mode-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ds-color-text-primary);
+}
+.mode-item .mode-desc {
+  font-size: 12px;
+  color: var(--ds-color-text-description);
+  line-height: 1.5;
+}
+.terminal-body {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-16) var(--sp-20);
+}
+.terminal-body pre {
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ds-color-text-primary);
+}
+.terminal-body pre .prompt { color: var(--ds-color-text-description); }
+.terminal-body pre .cmd { color: var(--ds-color-brand); }
+
+/* 按钮 */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: 13px;
+  color: var(--ds-color-text-secondary);
+  padding: var(--sp-8) var(--sp-12);
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-surface-1);
+  transition: color .15s ease, background-color .15s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.copy-btn:hover { color: var(--ds-color-text-primary); background: var(--ds-color-bg-surface-5); }
+.copy-btn svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   通用 section
+   ============================================================ */
+.section { padding-block: var(--sp-120); position: relative; }
+.section-tight { padding-block: var(--sp-80); }
+.section-label {
+  display: inline-block;
+  font-family: var(--ds-font-mono);
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ds-color-brand);
+  margin-bottom: var(--sp-16);
+}
+.section h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  margin-bottom: var(--sp-24);
+}
+.section-lead {
+  color: var(--ds-color-text-description);
+  font-size: 16px;
+  max-width: 720px;
+}
+.section-head { margin-bottom: var(--sp-56); }
+
+/* ============================================================
+   3. Agent = Model + Harness
+   ============================================================ */
+.glass-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-24);
+}
+.glass-card {
+  position: relative;
+  padding: var(--sp-32);
+  border-radius: var(--ds-radius-card);
+  background: var(--ds-color-bg-surface-1);
+  border: 1px solid var(--ds-color-border-default);
+  box-shadow: var(--ds-shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+}
+.glass-card .card-tag {
+  font-family: var(--ds-font-mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-placeholder);
+}
+.glass-card h3 {
+  font-size: 20px;
+  letter-spacing: -.01em;
+  color: var(--ds-color-text-primary);
+}
+.glass-card p {
+  font-size: 14px;
+  color: var(--ds-color-text-description);
+}
+
+/* ============================================================
+   4. 设计思路
+   ============================================================ */
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-24);
+}
+.feature-card {
+  padding: var(--sp-32);
+  border-radius: var(--ds-radius-card);
+  background: var(--ds-color-bg-surface-2);
+  border: 1px solid var(--ds-color-border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  transition: transform .25s ease, background-color .25s ease, border-color .25s ease;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  background: var(--ds-color-bg-surface-1);
+  border-color: var(--ds-color-border-subtle);
+}
+.feature-card h3 {
+  font-size: 20px;
+  letter-spacing: -.01em;
+}
+.feature-card p {
+  font-size: 14px;
+  color: var(--ds-color-text-description);
+}
+/* 产品截图占位 */
+.shot {
+  margin-top: var(--sp-56);
+  border-radius: var(--ds-radius-panel);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-bg-surface-2);
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5);
+}
+.shot-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-12) var(--sp-16);
+  border-bottom: 1px solid var(--ds-color-border-default);
+  background: var(--ds-color-bg-surface-3);
+}
+.shot-head .terminal-dots span { width: 10px; height: 10px; }
+.shot-head .shot-title {
+  margin-left: var(--sp-8);
+  font-family: var(--ds-font-mono);
+  font-size: 12px;
+  color: var(--ds-color-text-description);
+}
+.shot-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 340px;
+  padding: var(--sp-40);
+  background:
+    radial-gradient(120% 120% at 20% 0%, rgba(103,153,254,.18), transparent 55%),
+    radial-gradient(120% 120% at 100% 100%, rgba(74,138,196,.14), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+}
+.shot-body svg.placeholder { max-width: 100%; height: auto; }
+.shot-caption {
+  position: absolute;
+  bottom: var(--sp-24);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ds-color-text-description);
+}
+
+/* ============================================================
+   5. 自定义
+   ============================================================ */
+.video-panel {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--ds-radius-panel);
+  border: 1px solid var(--ds-color-border-subtle);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(103,153,254,.22), transparent 55%),
+    radial-gradient(100% 100% at 80% 100%, rgba(45,95,158,.2), transparent 60%),
+    linear-gradient(180deg, var(--ds-color-bg-surface-2), var(--ds-color-bg-surface-3));
+  cursor: pointer;
+}
+.video-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 60% at 50% 50%, transparent 40%, rgba(0,0,0,.35));
+  pointer-events: none;
+}
+.play-btn {
+  position: relative;
+  z-index: 1;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--ds-color-bg-surface-5);
+  border: 1px solid var(--ds-color-border-secondary);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .2s ease, background-color .2s ease;
+}
+.video-panel:hover .play-btn { transform: scale(1.05); background: var(--ds-color-bg-surface-1); }
+.play-btn svg { width: 30px; height: 30px; color: var(--ds-color-text-primary); margin-left: 3px; }
+.video-caption {
+  position: absolute;
+  z-index: 1;
+  bottom: var(--sp-24);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ds-color-text-description);
+}
+
+/* ============================================================
+   6. 开始使用
+   ============================================================ */
+.install-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-24);
+}
+.install-card {
+  padding: var(--sp-32);
+  border-radius: var(--ds-radius-card);
+  background: var(--ds-color-bg-surface-2);
+  border: 1px solid var(--ds-color-border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-16);
+}
+.install-card h3 { font-size: 20px; letter-spacing: -.01em; }
+.install-card p { font-size: 14px; color: var(--ds-color-text-description); }
+.install-code {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-12) var(--sp-16);
+  border-radius: var(--ds-radius-input);
+  background: var(--ds-color-bg-code);
+  border: 1px solid var(--ds-color-border-default);
+}
+.install-code pre {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ds-color-text-primary);
+}
+.install-code pre .prompt { color: var(--ds-color-text-description); }
+.install-code pre .cmd { color: var(--ds-color-brand); }
+
+/* ============================================================
+   7. 生态
+   ============================================================ */
+.eco {
+  border-radius: var(--ds-radius-card);
+  background: var(--ds-color-bg-surface-2);
+  border: 1px solid var(--ds-color-border-default);
+  padding: var(--sp-56) var(--sp-32);
+  text-align: left;
+}
+.eco .section-lead { margin-bottom: var(--sp-32); }
+
+/* ============================================================
+   8. 页脚
+   ============================================================ */
+.footer {
+  border-top: 1px solid var(--ds-color-border-default);
+  padding-block: var(--sp-56) var(--sp-40);
+}
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-32);
+}
+.footer-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-24);
+}
+.qr-block { display: flex; align-items: center; gap: var(--sp-16); }
+.qr {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--ds-radius-sm);
+  background: #fff;
+  padding: var(--sp-8);
+  flex-shrink: 0;
+}
+.qr svg { width: 100%; height: 100%; display: block; }
+.qr-text { display: flex; flex-direction: column; gap: var(--sp-4); }
+.qr-text .t { font-size: 15px; color: var(--ds-color-text-primary); font-weight: 500; }
+.qr-text .s { font-size: 13px; color: var(--ds-color-text-description); }
+.footer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+.footer-copy {
+  font-size: 13px;
+  color: var(--ds-color-text-description);
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-8) var(--sp-24);
+}
+.footer-links a {
+  font-size: 13px;
+  color: var(--ds-color-text-description);
+  transition: color .15s ease;
+}
+.footer-links a:hover { color: var(--ds-color-text-primary); }
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (min-width: 768px) {
+  .hero-grid { grid-template-columns: 3fr 2fr; align-items: center; }
+  .glass-grid { grid-template-columns: repeat(3, 1fr); }
+  .feature-grid { grid-template-columns: repeat(3, 1fr); }
+  .install-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-inner { flex-direction: row; justify-content: space-between; align-items: flex-start; }
+  .footer-top { flex-direction: row; align-items: flex-start; gap: var(--sp-56); }
+  .eco { padding: var(--sp-80); }
+  .section { padding-block: var(--sp-160); }
+  .section-tight { padding-block: var(--sp-120); }
+}
+
+@media (max-width: 767px) {
+  .nav-links a { display: none; }
+  .nav-links a.keep { display: inline-flex; }
+  .hero { padding-top: var(--sp-80); padding-bottom: var(--sp-80); }
+  .section { padding-block: var(--sp-80); }
+  .section-tight { padding-block: var(--sp-56); }
+  .mode-menu { right: auto; left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. 吸顶导航栏 ============ -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="nav-brand" href="#top" aria-label="DeepSeek Harness">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="20" rx="6" fill="var(--ds-color-brand)" opacity=".9"/>
+        <path d="M7 8h4M7 12h7M7 16h10" stroke="#0a0a0a" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span>Harness</span>
+    </a>
+    <nav class="nav-right" aria-label="主导航">
+      <div class="lang-switch" role="group" aria-label="语言切换">
+        <button type="button" class="active" data-lang="zh">中文</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <div class="nav-links">
+        <a href="https://github.com/deepseek-ai/deepseek-harness" class="keep" target="_blank" rel="noopener">GitHub</a>
+        <a href="#docs">开发者文档</a>
+        <a href="#plugins">社区插件</a>
+        <a href="#cordis">Cordis 论文</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ 2. Hero 区 ============ -->
+<section class="hero">
+<div class="hero-glow" aria-hidden="true"></div>
+<canvas class="hero-digitile" aria-hidden="true"></canvas>
+<div class="hero-fade" aria-hidden="true"></div>
+<div class="container hero-grid">
+      <div class="hero-left">
+        <span class="badge-pill"><span class="dot"></span>DeepSeek Harness 开发者预览版</span>
+        <h1>一切皆插件</h1>
+        <div class="hero-desc">
+          <p><strong>DeepSeek Harness 开发者预览版面向全球 Harness 开发者开放测试，并同步开放源代码。</strong></p>
+          <p>模型、工具、技能、会话、沙箱、存储、循环、调度、UI 等所有 Agent 能力均由插件组合而成，可以自由替换和灵活重组。</p>
+        </div>
+        <div class="hero-ctas">
+          <a class="cta-link" href="https://github.com/deepseek-ai/deepseek-harness" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            查看 GitHub
+          </a>
+          <a class="cta-link" href="#docs">开发者文档</a>
+          <a class="cta-link" href="#plugins">社区插件</a>
+          <a class="cta-link" href="#cordis">Cordis 论文</a>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="tab-switch" role="tablist" aria-label="安装方式">
+          <button type="button" class="active" data-install="npx" role="tab" aria-selected="true">一键使用</button>
+          <button type="button" data-install="git" role="tab" aria-selected="false">源码安装</button>
+        </div>
+        <div class="terminal">
+          <div class="terminal-head">
+            <div class="terminal-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="mode-select" id="modeSelect">
+              <button type="button" class="mode-select-btn" aria-haspopup="true" aria-expanded="false">
+                <span id="modeLabel">标准模式</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="mode-menu" role="menu">
+                <button type="button" class="mode-item" role="menuitem" data-mode="标准模式">
+                  <span class="mode-name">标准模式</span>
+                  <span class="mode-desc">功能完整的编码 Agent，支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。</span>
+                </button>
+                <button type="button" class="mode-item" role="menuitem" data-mode="PTC 模式">
+                  <span class="mode-name">PTC 模式</span>
+                  <span class="mode-desc">具备标准模式的全部能力，并通过 Code Mode SDK 呈现工具，让模型用一个 TypeScript 程序组合多步操作。</span>
+                </button>
+                <button type="button" class="mode-item" role="menuitem" data-mode="极简模式">
+                  <span class="mode-name">极简模式</span>
+                  <span class="mode-desc">仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。</span>
+                </button>
+                <button type="button" class="mode-item" role="menuitem" data-mode="创造模式">
+                  <span class="mode-name">创造模式</span>
+                  <span class="mode-desc">用于创建自定义 Agent preset：具备标准模式的全部能力，并提供运行时检查、插件实验和 preset 创作指导。</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="prompt">$ </span><span class="cmd" id="heroCommand">npx @deepseek-ai/dsh web</span></code></pre>
+            <button type="button" class="copy-btn" data-copy="npx @deepseek-ai/dsh web">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>复制</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. Agent = Model + Harness ============ -->
+  <section class="section" id="agent">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-label">Agent = Model + Harness</span>
+        <h2>Harness 让 Agent 在真实场景中持续工作</h2>
+        <p class="section-lead">模型是 Agent 的灵魂。Harness 给予 Agent 理解环境、使用工具，并在真实场景中持续工作的能力。</p>
+      </div>
+      <div class="glass-grid">
+        <article class="glass-card">
+          <span class="card-tag">CORDIS KERNEL</span>
+          <h3>Cordis 内核</h3>
+          <p>Cordis 内核只负责插件的加载、卸载和依赖关系，不承载 Agent 的具体能力。</p>
+        </article>
+        <article class="glass-card">
+          <span class="card-tag">CAPABILITIES AS PLUGINS</span>
+          <h3>插件提供能力</h3>
+          <p>模型、工具、技能、会话、沙箱、存储、循环、调度、UI 等所有 Agent 能力均由插件提供，并通过 Cordis 服务与事件彼此协作。</p>
+        </article>
+        <article class="glass-card">
+          <span class="card-tag">COMPOSE IN CONFIGURATION</span>
+          <h3>配置层自由组合</h3>
+          <p>开发者无需改动源码，即可在配置层选择、替换或扩展任一能力。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. 设计思路 ============ -->
+  <section class="section-tight" id="design">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-label">设计思路</span>
+        <h2>一切皆插件，运行有迹可循</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>一切皆插件</h3>
+          <p>DeepSeek Harness 基于 Cordis 插件系统构建。模型、工具、技能、会话、沙箱、存储、循环、调度、UI 等所有 Agent 能力均由插件提供，并通过 Cordis 服务与事件彼此协作。开发者无需改动 DeepSeek Harness 源码，即可在配置层选择、替换或扩展任一能力。</p>
+        </article>
+        <article class="feature-card">
+          <h3>每一次运行都有迹可循</h3>
+          <p>模型看到的一切都会写入仅追加设计的会话日志，包括系统提示词、思维链、工具调用与结果、子 Agent 调度，以及每一次上下文注入。在 Trajectory 视图中，你可以按来源查看这些信息。恢复、分叉、检索与回放也共享同一份事件流。</p>
+        </article>
+        <article class="feature-card">
+          <h3>多种运行模式</h3>
+          <p>标准模式提供完整的工具组合；PTC 模式通过模型生成的一段代码组合多轮工具调用；极简模式仅保留一个 shell 工具与一个文件编辑工具，用于最小化环境下的模型基准测试；创造模式可以检查当前运行时、在内存中试验 Cordis 插件，并据此组合和创作新的模式。</p>
+        </article>
+      </div>
+
+      <!-- 产品截图占位 -->
+      <div class="shot">
+        <div class="shot-head">
+          <div class="terminal-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span class="shot-title">Harness · 设置</span>
+        </div>
+        <div class="shot-body">
+          <svg class="placeholder" width="520" height="220" viewBox="0 0 520 220" fill="none" aria-hidden="true">
+            <rect x="0" y="0" width="520" height="220" rx="12" fill="rgba(255,255,255,.02)"/>
+            <rect x="24" y="24" width="200" height="16" rx="8" fill="rgba(255,255,255,.14)"/>
+            <rect x="24" y="56" width="140" height="10" rx="5" fill="rgba(255,255,255,.08)"/>
+            <rect x="24" y="96" width="472" height="44" rx="10" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.1)"/>
+            <circle cx="44" cy="118" r="8" fill="#6799fe"/>
+            <rect x="64" y="112" width="160" height="12" rx="6" fill="rgba(255,255,255,.18)"/>
+            <rect x="360" y="112" width="120" height="12" rx="6" fill="rgba(255,255,255,.08)"/>
+            <rect x="24" y="156" width="472" height="44" rx="10" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.1)"/>
+            <circle cx="44" cy="178" r="8" fill="rgba(255,255,255,.3)"/>
+            <rect x="64" y="172" width="200" height="12" rx="6" fill="rgba(255,255,255,.18)"/>
+            <rect x="360" y="172" width="120" height="12" rx="6" fill="rgba(255,255,255,.08)"/>
+          </svg>
+          <p class="shot-caption">设置页展示已安装插件及启用状态</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. 自定义你的 DeepSeek Harness ============ -->
+  <section class="section-tight" id="customize">
+    <div class="container">
+      <div class="section-head">
+        <h2>自定义你的 DeepSeek Harness</h2>
+      </div>
+      <div class="video-panel" role="button" tabindex="0" aria-label="播放演示视频">
+        <div class="play-btn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z"/></svg>
+        </div>
+        <p class="video-caption">观看 Harness 自定义演示</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. 开始使用 ============ -->
+  <section class="section-tight" id="getstarted">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-label">开始使用</span>
+        <h2>快速体验或从源码安装</h2>
+      </div>
+      <div class="install-grid">
+        <article class="install-card">
+          <h3>快速体验</h3>
+          <p>安装 Node.js 后，可通过 npx 启动 Web UI。</p>
+          <div class="install-code">
+            <pre><code><span class="prompt">$ </span><span class="cmd">npx @deepseek-ai/dsh web</span></code></pre>
+            <button type="button" class="copy-btn" data-copy="npx @deepseek-ai/dsh web">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>复制</span>
+            </button>
+          </div>
+        </article>
+        <article class="install-card">
+          <h3>源码安装</h3>
+          <p>获取完整项目源码，并按照仓库说明完成安装。</p>
+          <div class="install-code">
+            <pre><code><span class="prompt">$ </span><span class="cmd">git clone https://github.com/deepseek-ai/deepseek-harness</span></code></pre>
+            <button type="button" class="copy-btn" data-copy="git clone https://github.com/deepseek-ai/deepseek-harness">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>复制</span>
+            </button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7. 加入 DSH 插件生态 ============ -->
+  <section class="section-tight" id="plugins">
+    <div class="container">
+      <div class="eco">
+        <span class="section-label">加入 DSH 插件生态</span>
+        <h2>加入 DSH 插件生态</h2>
+        <p class="section-lead">DeepSeek Harness 开发者预览版仍处于面向 Harness 开发者的测试阶段，核心插件和基础 API 将持续迭代。我们期待与全球开发者一起，在开源、开放、可复用、可组合的基础设施之上，共同探索智能上限。</p>
+        <div class="hero-ctas">
+          <a class="cta-link" href="https://github.com/deepseek-ai/deepseek-harness" target="_blank" rel="noopener">查看 GitHub</a>
+          <a class="cta-link" href="#docs">开发者文档</a>
+          <a class="cta-link" href="#plugins">社区插件</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ 8. 页脚 ============ -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-top">
+      <div class="qr-block">
+        <div class="qr" aria-label="微信公众号二维码">
+          <svg viewBox="0 0 80 80" shape-rendering="crispEdges" aria-hidden="true">
+            <rect width="80" height="80" fill="#ffffff"/>
+            <g fill="#0a0a0a">
+              <rect x="8" y="8" width="20" height="20"/><rect x="12" y="12" width="12" height="12" fill="#fff"/><rect x="16" y="16" width="4" height="4"/>
+              <rect x="52" y="8" width="20" height="20"/><rect x="56" y="12" width="12" height="12" fill="#fff"/><rect x="60" y="16" width="4" height="4"/>
+              <rect x="8" y="52" width="20" height="20"/><rect x="12" y="56" width="12" height="12" fill="#fff"/><rect x="16" y="60" width="4" height="4"/>
+              <rect x="36" y="8" width="4" height="4"/><rect x="44" y="8" width="4" height="4"/>
+              <rect x="36" y="16" width="4" height="4"/><rect x="44" y="16" width="4" height="4"/>
+              <rect x="36" y="24" width="4" height="4"/><rect x="44" y="24" width="4" height="4"/>
+              <rect x="8" y="36" width="4" height="4"/><rect x="16" y="36" width="4" height="4"/><rect x="24" y="36" width="4" height="4"/><rect x="32" y="36" width="4" height="4"/>
+              <rect x="40" y="36" width="4" height="4"/><rect x="48" y="36" width="4" height="4"/><rect x="56" y="36" width="4" height="4"/><rect x="64" y="36" width="4" height="4"/>
+              <rect x="36" y="44" width="4" height="4"/><rect x="44" y="44" width="4" height="4"/><rect x="36" y="52" width="4" height="4"/><rect x="44" y="52" width="4" height="4"/>
+              <rect x="52" y="44" width="4" height="4"/><rect x="60" y="44" width="4" height="4"/><rect x="52" y="52" width="4" height="4"/><rect x="60" y="52" width="4" height="4"/><rect x="52" y="60" width="4" height="4"/><rect x="60" y="60" width="4" height="4"/><rect x="52" y="68" width="4" height="4"/><rect x="60" y="68" width="4" height="4"/>
+              <rect x="36" y="60" width="4" height="4"/><rect x="36" y="68" width="4" height="4"/><rect x="44" y="68" width="4" height="4"/>
+              <rect x="8" y="68" width="4" height="4"/><rect x="16" y="68" width="4" height="4"/><rect x="24" y="68" width="4" height="4"/>
+              <rect x="68" y="8" width="4" height="4"/><rect x="68" y="16" width="4" height="4"/><rect x="68" y="24" width="4" height="4"/><rect x="68" y="36" width="4" height="4"/>
+              <rect x="68" y="44" width="4" height="4"/><rect x="68" y="52" width="4" height="4"/><rect x="68" y="60" width="4" height="4"/>
+            </g>
+          </svg>
+        </div>
+        <div class="qr-text">
+          <span class="t">微信公众号</span>
+          <span class="s">扫码关注</span>
+        </div>
+      </div>
+      <div class="footer-meta">
+        <p class="footer-copy">开源 · MIT · © 2026 杭州深度求索人工智能基础技术研究有限公司 版权所有</p>
+        <nav class="footer-links" aria-label="政策链接">
+          <a href="#security">安全使用政策</a>
+          <a href="#data">数据处理说明</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---- 吸顶导航：滚动后加深背景 ---- */
+  var nav = document.getElementById('nav');
+  function onScroll() {
+    if (window.scrollY > 8) { nav.classList.add('scrolled'); }
+    else { nav.classList.remove('scrolled'); }
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ---- 复制按钮（含 file:// fallback） ---- */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return Promise.reject(new Error('clipboard unavailable'));
+  }
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function flashCopy(btn) {
+    var label = btn.querySelector('span');
+    if (!label) { return; }
+    var original = label.textContent;
+    label.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(function () {
+      label.textContent = original;
+      btn.classList.remove('copied');
+    }, 1600);
+  }
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy') || '';
+      copyText(text).then(function () {
+        flashCopy(btn);
+      }).catch(function () {
+        if (legacyCopy(text)) { flashCopy(btn); }
+        else {
+          // 极兜底：弹窗提示手动复制
+          window.prompt('请手动复制以下命令：', text);
+        }
+      });
+    });
+  });
+
+  /* ---- 安装 tab 切换（Hero） ---- */
+  var installTabs = document.querySelectorAll('.tab-switch button[data-install]');
+  var heroCommand = document.getElementById('heroCommand');
+  var heroCopyBtn = document.querySelector('.hero .copy-btn');
+  var commands = {
+    npx: 'npx @deepseek-ai/dsh web',
+    git: 'git clone https://github.com/deepseek-ai/deepseek-harness'
+  };
+  installTabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      installTabs.forEach(function (b) {
+        var active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      var key = btn.getAttribute('data-install');
+      heroCommand.textContent = commands[key];
+      heroCopyBtn.setAttribute('data-copy', commands[key]);
+    });
+  });
+
+  /* ---- 模式选择器 ---- */
+  var modeSelect = document.getElementById('modeSelect');
+  var modeBtn = modeSelect.querySelector('.mode-select-btn');
+  var modeLabel = document.getElementById('modeLabel');
+  var modeItems = modeSelect.querySelectorAll('.mode-item');
+
+  function closeMode() {
+    modeSelect.classList.remove('open');
+    modeBtn.setAttribute('aria-expanded', 'false');
+  }
+  modeBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var isOpen = modeSelect.classList.contains('open');
+    if (isOpen) { closeMode(); }
+    else {
+      modeSelect.classList.add('open');
+      modeBtn.setAttribute('aria-expanded', 'true');
+    }
+  });
+  modeItems.forEach(function (item) {
+    item.addEventListener('click', function () {
+      modeLabel.textContent = item.getAttribute('data-mode');
+      closeMode();
+    });
+  });
+  document.addEventListener('click', function (e) {
+    if (!modeSelect.contains(e.target)) { closeMode(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeMode(); }
+  });
+
+  /* ---- 语言切换（仅切换激活态） ---- */
+  var langBtns = document.querySelectorAll('.lang-switch button');
+  langBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      langBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+  });
+})();
+</script>
+<script>
+/* ============================================================
+   Hero 粒子点阵 —— 拼出 "Data Agent" 英文字母
+   ============================================================ */
+(function () {
+  'use strict';
+  var canvas = document.querySelector('.hero-digitile');
+  if (!canvas) { return; }
+  var hero = canvas.parentElement;
+  var ctx = canvas.getContext('2d');
+  var TAU = Math.PI * 2;
+
+  var dpr = 1, W = 0, H = 0;
+  var MOBILE = window.innerWidth < 768;
+
+  /* ---- 品牌色 ---- */
+  var BRAND = [135, 140, 148];   // 中灰白（低饱和，亮度再调暗）
+
+  /* ---- 参数 ---- */
+  var REPEL_R = 90;                        // 鼠标推开半径
+  var MOUSE_GLOW_R = 48;                   // 鼠标柔光半径
+  var MAX_PARTICLES = MOBILE ? 260 : 850;  // 桌面密集，移动端减半
+  var TEXT_FRAC = MOBILE ? 0.82 : 0.68;    // 文字横跨 hero 宽度比例
+  var SAMPLE_STEP = MOBILE ? 3 : 3;        // 采样步长 3px：粒子间距 3px，保证不重叠
+  var DOT_R = MOBILE ? 1.3 : 1.4;          // 方点半边长 1.4px → 边长 2.8px < 间距 3px，内层不重叠
+  var DOT_ALPHA = 0.8;                     // 统一透明度（去掉随机明暗）
+  var BREATH_R = 120;                      // 鼠标呼吸影响半径
+
+  var particles = [];
+  var textCx = 0, textCy = 0;
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function clamp(lo, hi, v) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  /* ---- 文字点阵生成（离屏 canvas，不插入 DOM） ---- */
+  function buildText() {
+    var off = document.createElement('canvas');
+    var octx = off.getContext('2d');
+    var fontSize = Math.floor(W * 0.16);
+    var fontStr = 'bold ' + fontSize + 'px "Host Grotesk","DM Sans",system-ui,sans-serif';
+    octx.font = fontStr;
+    var textW = octx.measureText('Data Agent').width;
+    fontSize = Math.max(16, Math.floor(fontSize * (W * TEXT_FRAC) / textW));
+    fontStr = 'bold ' + fontSize + 'px "Host Grotesk","DM Sans",system-ui,sans-serif';
+    octx.font = fontStr;
+    textW = octx.measureText('Data Agent').width;
+    var textH = fontSize * 1.7;
+
+    off.width = Math.ceil(textW);
+    off.height = Math.ceil(textH);
+    octx = off.getContext('2d');
+    octx.font = fontStr;
+    octx.textAlign = 'left';
+    octx.textBaseline = 'middle';
+    octx.fillStyle = '#fff';
+    octx.fillText('Data Agent', 0, off.height / 2);
+
+    /* 采样亮度 > 128 的像素（填充点阵，保留内部像素） */
+    var img = octx.getImageData(0, 0, off.width, off.height).data;
+    var pts = [];
+    for (var y = 0; y < off.height; y += SAMPLE_STEP) {
+      for (var x = 0; x < off.width; x += SAMPLE_STEP) {
+        var idx = (y * off.width + x) * 4;
+        var lum = 0.299 * img[idx] + 0.587 * img[idx + 1] + 0.114 * img[idx + 2];
+        if (img[idx + 3] > 128 && lum > 128) { pts.push([x, y]); }
+      }
+    }
+
+    /* 抽稀到上限 */
+    if (pts.length > MAX_PARTICLES) {
+      for (var i = 0; i < MAX_PARTICLES; i++) {
+        var j = i + Math.floor(Math.random() * (pts.length - i));
+        var tmp = pts[i]; pts[i] = pts[j]; pts[j] = tmp;
+      }
+      pts.length = MAX_PARTICLES;
+    }
+
+    /* 映射到 canvas 坐标（居中偏下） */
+    textCx = W / 2;
+    textCy = H * 0.6;
+    var ox = textCx - textW / 2;
+    var oy = textCy - textH / 2;
+
+    particles.length = 0;
+    for (var p = 0; p < pts.length; p++) {
+      var tx = ox + pts[p][0];
+      var ty = oy + pts[p][1];
+      var ang = rand(0, TAU);
+      var dist = rand(200, 400);        // 散开起始：从文字中心向外 200~400px
+      particles.push({
+        tx: tx, ty: ty,
+        sx: textCx + Math.cos(ang) * dist,
+        sy: textCy + Math.sin(ang) * dist,
+        offX: 0, offY: 0, offVx: 0, offVy: 0,
+        r: DOT_R,
+        baseAlpha: DOT_ALPHA
+      });
+    }
+  }
+
+  var startTime = null;
+  function resize() {
+    var nw = hero.clientWidth, nh = hero.clientHeight;
+    if (nw === W && nh === H) { return; }
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = nw; H = nh;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    buildText();
+    startTime = null;   // 重新组装
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  if ('ResizeObserver' in window) { new ResizeObserver(resize).observe(hero); }
+
+  /* ---- 鼠标 ---- */
+  var mouse = { x: -9999, y: -9999, active: false };
+  var mouseAlpha = 0;
+  function onMouseMove(e) {
+    var rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+    mouse.active = true;
+  }
+  window.addEventListener('mousemove', onMouseMove);
+  hero.addEventListener('mouseleave', function () { mouse.active = false; });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { mouse.active = false; }
+  });
+
+  /* ---- 可见性暂停 ---- */
+  var visible = true;
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      visible = entries[0].isIntersecting;
+    }, { threshold: 0 }).observe(hero);
+  }
+
+  /* ---- 绘制：规整方形点阵（边缘锐利，无 shadowBlur） ---- */
+  function drawParticle(x, y, r, alpha, rgb) {
+    if (alpha <= 0.003) { return; }
+    var s = r * 2;       // 内层实心方形边长
+    var g = r * 3.4;     // 外层微光晕边长
+    /* 外层微光晕（更大更淡的方形） */
+    ctx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + (alpha * 0.12).toFixed(3) + ')';
+    ctx.fillRect(x - g / 2, y - g / 2, g, g);
+    /* 内层实心方形 */
+    ctx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha.toFixed(3) + ')';
+    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+  }
+
+  /* ---- 渲染循环（30fps 限帧） ---- */
+  var lastFrame = 0;
+  function frame(ts) {
+    requestAnimationFrame(frame);
+    if (!visible) { lastFrame = ts; return; }
+    if (ts - lastFrame < 33) { return; }
+    lastFrame = ts;
+    if (startTime === null) { startTime = ts; }
+    var time = (ts - startTime) / 1000;
+
+    mouseAlpha += ((mouse.active ? 1 : 0) - mouseAlpha) * 0.12;
+
+    /* 组装进度：1-(1-t)^3 缓动，约 1.8s 汇聚成字 */
+    var t = clamp(0, 1, (time - 0.3) / 1.8);
+    var ease = 1 - Math.pow(1 - t, 3);
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';  // 加色混合保留发光；粒子间距 3px > 边长 2.8px 不重叠，颜色仍统一
+
+    var n = particles.length;
+    for (var i = 0; i < n; i++) {
+      var p = particles[i];
+
+      /* 组装目标位置 */
+      var ax = p.sx + (p.tx - p.sx) * ease;
+      var ay = p.sy + (p.ty - p.sy) * ease;
+
+      /* 鼠标 repel：径向推力，二次衰减，力度克制 */
+      if (mouse.active && mouseAlpha > 0.01) {
+        var px = ax + p.offX;
+        var py = ay + p.offY;
+        var dx = px - mouse.x;
+        var dy = py - mouse.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < REPEL_R && d > 0.5) {
+          var f = (1 - d / REPEL_R) * (1 - d / REPEL_R) * 0.4 * mouseAlpha;
+          p.offVx += (dx / d) * f;
+          p.offVy += (dy / d) * f;
+        }
+      }
+
+      /* 位移积分 + 速度阻尼 + 弹簧回正 */
+      p.offX += p.offVx;
+      p.offY += p.offVy;
+      p.offVx *= 0.80;
+      p.offVy *= 0.80;
+      p.offX *= 0.90;
+      p.offY *= 0.90;
+
+      var fx = ax + p.offX;
+      var fy = ay + p.offY;
+
+      /* 同步微弱呼吸（整体统一，字母保持整齐） */
+      var shimmer = 0.96 + 0.04 * Math.sin(time * 1.2);
+      var alpha = p.baseAlpha * shimmer;
+      var rr = p.r;
+
+      /* 鼠标呼吸：悬浮处粒子明暗 + 大小随距离产生从中心向外扩散的波纹，营造呼吸感 */
+      if (mouse.active && mouseAlpha > 0.01) {
+        var bdx = fx - mouse.x;
+        var bdy = fy - mouse.y;
+        var bd = Math.sqrt(bdx * bdx + bdy * bdy);
+        if (bd < BREATH_R) {
+          var fall = 1 - bd / BREATH_R;
+          var wave = Math.sin(time * 2.8 - bd * 0.02);
+          var amp = 0.42 * fall * mouseAlpha;
+          alpha *= 1 + amp * wave;
+          rr *= 1 + amp * 0.9 * wave;
+        }
+      }
+
+      drawParticle(fx, fy, rr, alpha, BRAND);
+    }
+
+    /* 鼠标柔光点（径向渐变，品牌蓝到透明） */
+    if (mouseAlpha > 0.01 && mouse.active) {
+      var grd = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, MOUSE_GLOW_R);
+      grd.addColorStop(0, 'rgba(145,150,158,' + (0.4 * mouseAlpha).toFixed(3) + ')');
+      grd.addColorStop(0.5, 'rgba(132,137,145,' + (0.16 * mouseAlpha).toFixed(3) + ')');
+      grd.addColorStop(1, 'rgba(132,137,145,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, MOUSE_GLOW_R, 0, TAU);
+      ctx.fill();
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
